@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup lock run test check
+.PHONY: help setup lock run view test check
 
 help: ## Show available commands
 	@awk 'BEGIN {FS = ":.*## "; print "Usage: make <target> [ARGS=\"...\"]\n"} /^[a-zA-Z_-]+:.*## / {printf "  %-10s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -13,6 +13,9 @@ lock: ## Update the uv lockfile
 
 run: ## Run a game (ARGS="--width N --height N --tree-density F --seed N --agents N --max-turns N")
 	uv run python main.py $(ARGS)
+
+view: ## Animate a game (ARGS="same as run, plus --turns-per-second F")
+	uv run python main.py --pygame $(ARGS)
 
 test: ## Run the test suite
 	uv run python -m unittest discover -s tests -v

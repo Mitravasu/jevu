@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from random import Random
@@ -143,6 +144,7 @@ class GameState:
         self,
         max_turns: int = 0,
         log_directory: str | Path | None = "logs",
+        state_callback: Callable[[GameState], bool] | None = None,
     ) -> GameState:
         """Run a simulation and return its final state."""
 
@@ -151,8 +153,11 @@ class GameState:
 
         game_state = self
         initial_log_length = len(self.action_log)
-        for _ in range(max_turns):
+        should_continue = state_callback(self) if state_callback else True
+        for _ in range(max_turns if should_continue else 0):
             game_state = game_state._run_turn()
+            if state_callback is not None and not state_callback(game_state):
+                break
 
         for entry in game_state.action_log[initial_log_length:]:
             print(entry)
