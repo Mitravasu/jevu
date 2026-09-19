@@ -40,7 +40,7 @@ class GameStateTests(unittest.TestCase):
         output = StringIO()
 
         with redirect_stdout(output):
-            game_state.run()
+            game_state.run(log_directory=None)
 
         rendered_output = output.getvalue()
         self.assertIn("Start state:\n" + game_state.render_ascii(), rendered_output)
@@ -58,7 +58,7 @@ class GameStateTests(unittest.TestCase):
         game_state = GameState.create(blank_config, agent_count=2)
 
         with redirect_stdout(StringIO()):
-            final_state = game_state.run(max_turns=3)
+            final_state = game_state.run(max_turns=3, log_directory=None)
 
         self.assertEqual(final_state.turn, 3)
         self.assertEqual(len(final_state.action_log), 6)
@@ -77,8 +77,8 @@ class GameStateTests(unittest.TestCase):
         second = GameState.create(self.config, agent_count=2)
 
         with redirect_stdout(StringIO()):
-            first_result = first.run(max_turns=3)
-            second_result = second.run(max_turns=3)
+            first_result = first.run(max_turns=3, log_directory=None)
+            second_result = second.run(max_turns=3, log_directory=None)
 
         self.assertEqual(first_result, second_result)
 
@@ -88,7 +88,7 @@ class GameStateTests(unittest.TestCase):
         game_state = replace(game_state, agents=(starving_agent,))
 
         with redirect_stdout(StringIO()):
-            final_state = game_state.run(max_turns=1)
+            final_state = game_state.run(max_turns=1, log_directory=None)
 
         self.assertEqual(final_state.agents, ())
 
@@ -96,7 +96,7 @@ class GameStateTests(unittest.TestCase):
         game_state = GameState.create(self.config)
 
         with self.assertRaises(ValueError):
-            game_state.run(max_turns=-1)
+            game_state.run(max_turns=-1, log_directory=None)
 
 
 if __name__ == "__main__":

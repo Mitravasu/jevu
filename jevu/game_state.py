@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from pathlib import Path
 from random import Random
 
 from jevu.actions import ExploreAction, InteractAction, TurnActions, take_turn
 from jevu.agent import Agent
+from jevu.simulation_log import write_simulation_log
 from jevu.world import Position, World, WorldConfig
 
 
@@ -137,7 +139,11 @@ class GameState:
             action_log=self.action_log + tuple(new_log_entries),
         )
 
-    def run(self, max_turns: int = 0) -> GameState:
+    def run(
+        self,
+        max_turns: int = 0,
+        log_directory: str | Path | None = "logs",
+    ) -> GameState:
         """Run a simulation and return its final state."""
 
         if max_turns < 0:
@@ -159,4 +165,13 @@ class GameState:
         print(game_state.render_ascii())
         print("Agent states:")
         print(game_state.render_agent_states())
+        if log_directory is not None:
+            log_path = write_simulation_log(
+                initial_state=self,
+                final_state=game_state,
+                action_entries=game_state.action_log[initial_log_length:],
+                max_turns=max_turns,
+                directory=log_directory,
+            )
+            print(f"\nLog file: {log_path}")
         return game_state
