@@ -27,6 +27,31 @@ AGENT_COLORS = (
     (127, 255, 0),
     (138, 43, 226),
 )
+END_BACKGROUND_COLOR = (35, 50, 40)
+END_TEXT_COLOR = (240, 245, 240)
+END_ACCENT_COLOR = (160, 220, 140)
+
+
+def build_summary_lines(
+    initial_state: GameState,
+    final_state: GameState,
+) -> tuple[str, ...]:
+    """Build the game-over reason and per-agent survival summary."""
+
+    reason = "All agents died" if not final_state.agents else "Maximum turns reached"
+    final_agent_ids = {agent.id for agent in final_state.agents}
+    survival_turns = {agent.id: 0 for agent in initial_state.agents}
+
+    for entry in final_state.action_log[len(initial_state.action_log) :]:
+        survival_turns[entry.agent_id] = entry.turn - initial_state.turn
+
+    agent_lines = tuple(
+        f"{agent.id} survived {survival_turns[agent.id]} "
+        f"{'turn' if survival_turns[agent.id] == 1 else 'turns'}"
+        + (" (alive)" if agent.id in final_agent_ids else "")
+        for agent in initial_state.agents
+    )
+    return (reason, *agent_lines)
 
 
 class PygameView:
@@ -97,6 +122,41 @@ class PygameView:
                     self.is_open = False
             self.clock.tick(30)
 
+    def draw_end_screen(
+        self,
+        initial_state: GameState,
+        final_state: GameState,
+    ) -> None:
+        """Replace the grid with a game-over summary."""
+
+        summary_lines = build_summary_lines(initial_state, final_state)
+        width = max(self.screen.get_width(), 520)
+        height = max(self.screen.get_height(), 180 + len(summary_lines) * 30)
+        if self.screen.get_size() != (width, height):
+            self.screen = pygame.display.set_mode((width, height))
+
+        self.screen.fill(END_BACKGROUND_COLOR)
+        title_font = pygame.font.Font(None, 52)
+        summary_font = pygame.font.Font(None, 32)
+        detail_font = pygame.font.Font(None, 26)
+
+        title = title_font.render("Game Over", True, END_ACCENT_COLOR)
+        self.screen.blit(title, title.get_rect(center=(width // 2, 55)))
+
+        reason = summary_font.render(summary_lines[0], True, END_TEXT_COLOR)
+        self.screen.blit(reason, reason.get_rect(center=(width // 2, 105)))
+
+        for index, line in enumerate(summary_lines[1:]):
+            detail = detail_font.render(line, True, END_TEXT_COLOR)
+            self.screen.blit(
+                detail,
+                detail.get_rect(center=(width // 2, 150 + index * 28)),
+            )
+
+        footer = detail_font.render("Close the window to exit", True, END_ACCENT_COLOR)
+        self.screen.blit(footer, footer.get_rect(center=(width // 2, height - 30)))
+        pygame.display.flip()
+
     def close(self) -> None:
         self.is_open = False
         pygame.quit()
@@ -118,6 +178,8 @@ def run_pygame(
             log_directory=log_directory,
             state_callback=view.draw,
         )
+        if view.is_open:
+            view.draw_end_screen(game_state, final_state)
         if hold_open and view.is_open:
             view.wait_until_closed()
         return final_state

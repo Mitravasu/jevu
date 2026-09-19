@@ -92,6 +92,26 @@ class GameStateTests(unittest.TestCase):
 
         self.assertEqual(final_state.agents, ())
 
+    def test_simulation_ends_when_all_agents_die(self) -> None:
+        game_state = GameState.create(self.config, agent_count=1)
+        starving_agent = replace(game_state.agents[0], hunger=1)
+        game_state = replace(game_state, agents=(starving_agent,))
+
+        with redirect_stdout(StringIO()):
+            final_state = game_state.run(max_turns=10, log_directory=None)
+
+        self.assertEqual(final_state.turn, 1)
+        self.assertEqual(len(final_state.action_log), 1)
+
+    def test_simulation_ends_at_max_turns_when_agents_survive(self) -> None:
+        game_state = GameState.create(self.config, agent_count=1)
+
+        with redirect_stdout(StringIO()):
+            final_state = game_state.run(max_turns=3, log_directory=None)
+
+        self.assertEqual(final_state.turn, 3)
+        self.assertTrue(final_state.agents)
+
     def test_negative_max_turns_are_rejected(self) -> None:
         game_state = GameState.create(self.config)
 

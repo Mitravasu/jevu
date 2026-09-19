@@ -1,13 +1,20 @@
 import os
 import unittest
 from contextlib import redirect_stdout
+from dataclasses import replace
 from io import StringIO
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
 from jevu.game_state import GameState
-from jevu.pygame_view import AGENT_COLORS, BLANK_COLOR, TREE_COLOR, run_pygame
+from jevu.pygame_view import (
+    AGENT_COLORS,
+    BLANK_COLOR,
+    TREE_COLOR,
+    build_summary_lines,
+    run_pygame,
+)
 from jevu.world import WorldConfig
 
 
@@ -33,6 +40,38 @@ class PygameViewTests(unittest.TestCase):
             )
 
         self.assertEqual(final_state.turn, 1)
+
+    def test_summary_reports_when_all_agents_die(self) -> None:
+        initial_state = GameState.create(
+            WorldConfig(width=3, height=2, seed=42),
+            agent_count=1,
+        )
+        initial_state = replace(
+            initial_state,
+            agents=(replace(initial_state.agents[0], hunger=1),),
+        )
+
+        with redirect_stdout(StringIO()):
+            final_state = initial_state.run(max_turns=10, log_directory=None)
+
+        self.assertEqual(
+            build_summary_lines(initial_state, final_state),
+            ("All agents died", "A1 survived 1 turn"),
+        )
+
+    def test_summary_reports_survivors_at_turn_limit(self) -> None:
+        initial_state = GameState.create(
+            WorldConfig(width=3, height=2, seed=42),
+            agent_count=1,
+        )
+
+        with redirect_stdout(StringIO()):
+            final_state = initial_state.run(max_turns=2, log_directory=None)
+
+        self.assertEqual(
+            build_summary_lines(initial_state, final_state),
+            ("Maximum turns reached", "A1 survived 2 turns (alive)"),
+        )
 
 
 if __name__ == "__main__":

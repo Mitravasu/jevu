@@ -155,6 +155,8 @@ class GameState:
         initial_log_length = len(self.action_log)
         should_continue = state_callback(self) if state_callback else True
         for _ in range(max_turns if should_continue else 0):
+            if not game_state.agents:
+                break
             game_state = game_state._run_turn()
             if state_callback is not None and not state_callback(game_state):
                 break
