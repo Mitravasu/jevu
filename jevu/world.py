@@ -5,6 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 from random import Random
+from typing import TYPE_CHECKING, Iterable
+
+if TYPE_CHECKING:
+    from jevu.agent import Agent
 
 
 class TileType(StrEnum):
@@ -94,10 +98,15 @@ class World:
             if self.contains(neighbor)
         }
 
-    def render_ascii(self) -> str:
+    def render_ascii(self, agents: Iterable[Agent] = ()) -> str:
         """Render the world for quick terminal inspection."""
 
         symbols = {TileType.BLANK: ".", TileType.FRUIT_TREE: "T"}
+        agent_labels = {agent.position: agent.id for agent in agents}
         return "\n".join(
-            "".join(symbols[tile] for tile in row) for row in self.tiles
+            " ".join(
+                agent_labels.get(Position(x, y), symbols[tile])
+                for x, tile in enumerate(row)
+            )
+            for y, row in enumerate(self.tiles)
         )

@@ -11,7 +11,7 @@ setup: ## Create the virtual environment and install dependencies
 lock: ## Update the uv lockfile
 	uv lock
 
-run: ## Generate a world (ARGS="--width N --height N --tree-density F --seed N")
+run: ## Generate a world (ARGS="--width N --height N --tree-density F --seed N --agents N")
 	uv run python main.py $(ARGS)
 
 test: ## Run the test suite
