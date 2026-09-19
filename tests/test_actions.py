@@ -4,6 +4,7 @@ from jevu.actions import (
     ExploreAction,
     InteractAction,
     TurnActions,
+    claim_tile,
     explore,
     interact,
     take_turn,
@@ -86,6 +87,15 @@ class ActionTests(unittest.TestCase):
         )
 
         self.assertEqual(updated, tree_agent)
+
+    def test_claim_only_assigns_an_unclaimed_tile(self) -> None:
+        agent = Agent(number=1, position=Position(0, 0))
+
+        claimed = claim_tile(agent, self.world, {})
+        unchanged = claim_tile(Agent(2, Position(0, 0)), self.world, claimed)
+
+        self.assertEqual(claimed, {Position(0, 0): 1})
+        self.assertEqual(unchanged, claimed)
 
     def test_eat_consumes_food_and_restores_configured_hunger(self) -> None:
         agent = Agent(

@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
 
+from jevu.action_choice_data import EXPLORE_CRITERIA, INTERACT_CRITERIA
 from jevu.actions import ExploreAction, InteractAction, TurnActions
 from jevu.agent import Agent
 from jevu.jev import DEFAULT_MODEL, INTERACT_QUESTION, JevActionSelector
@@ -35,6 +36,10 @@ class FakeClient:
 
 
 class JevActionSelectorTests(unittest.TestCase):
+    def test_choice_data_covers_every_action(self) -> None:
+        self.assertEqual(set(INTERACT_CRITERIA), set(InteractAction))
+        self.assertEqual(set(EXPLORE_CRITERIA), set(ExploreAction))
+
     @patch.dict("os.environ", {"JEV_API_TOKEN": "test-token"})
     @patch("jevu.jev.TypeSafeClient")
     def test_uses_the_configured_model(self, client_type) -> None:
@@ -59,6 +64,7 @@ class JevActionSelectorTests(unittest.TestCase):
         self.assertIn(str(FRUIT_TREE_COOLDOWN), harvest)
         self.assertIn(str(FOOD_EAT_COST), eat)
         self.assertIn(str(FOOD_HUNGER_RESTORE), eat)
+        self.assertIn(InteractAction.CLAIM.value, INTERACT_QUESTION.criteria)
 
     def test_selects_both_actions_from_one_agent_state_request(self) -> None:
         world = World(
@@ -83,6 +89,7 @@ class JevActionSelectorTests(unittest.TestCase):
         self.assertEqual(set(client.questions), {"interact", "explore"})
         self.assertEqual(client.state["agent_state"]["id"], "A1")
         self.assertEqual(client.state["agent_state"]["current_tile_cooldown"], 0)
+        self.assertIsNone(client.state["agent_state"]["current_tile_claim"])
         self.assertEqual(
             client.state["agent_state"]["adjacent_tiles"],
             {"up": "fruit_tree", "left": "blank"},

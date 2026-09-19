@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from enum import StrEnum
 
@@ -29,6 +30,7 @@ class InteractAction(StrEnum):
 
     HARVEST = "harvest"
     EAT = "eat"
+    CLAIM = "claim"
 
 
 type Action = ExploreAction | InteractAction
@@ -78,6 +80,9 @@ def interact(
             )
         return agent
 
+    if action is InteractAction.CLAIM:
+        return agent
+
     if agent.inventory.food < FOOD_EAT_COST or agent.hunger == MAX_HUNGER:
         return agent
     return replace(
@@ -85,6 +90,20 @@ def interact(
         inventory=agent.inventory.consume_food(FOOD_EAT_COST),
         hunger=min(MAX_HUNGER, agent.hunger + FOOD_HUNGER_RESTORE),
     )
+
+
+def claim_tile(
+    agent: Agent,
+    world: World,
+    tile_claims: Mapping[Position, int],
+) -> dict[Position, int]:
+    """Return claims with the agent's current tile claimed when eligible."""
+
+    if agent.position in tile_claims:
+        return dict(tile_claims)
+    if world.tile_at(agent.position) not in {TileType.BLANK, TileType.FRUIT_TREE}:
+        return dict(tile_claims)
+    return dict(tile_claims) | {agent.position: agent.number}
 
 
 def take_turn(

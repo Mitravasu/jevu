@@ -16,11 +16,13 @@ from jevu.pygame_view import (
     TREE_COOLDOWN_COLOR,
     TREE_COLOR,
     TREE_RECOVERING_COLOR,
+    PygameView,
+    agent_color,
     build_summary_lines,
     run_pygame,
     tile_color,
 )
-from jevu.world import TileType, WorldConfig
+from jevu.world import Position, TileType, World, WorldConfig
 from jevu.rules import FRUIT_TREE_COOLDOWN, HUNGER_LOSS_PER_TURN, MIN_HUNGER
 
 
@@ -47,6 +49,28 @@ class PygameViewTests(unittest.TestCase):
             TREE_RECOVERING_COLOR,
         )
         self.assertEqual(tile_color(TileType.FRUIT_TREE, 0), TREE_COLOR)
+
+    def test_claim_border_uses_the_assigned_agent_color(self) -> None:
+        position = Position(0, 0)
+        world = World(
+            config=WorldConfig(width=1, height=1, fruit_tree_density=0.0),
+            tiles=((TileType.BLANK,),),
+        )
+        game_state = GameState(
+            world=world,
+            agents=(),
+            tile_claims={position: 2},
+        )
+        view = PygameView(game_state, turns_per_second=1000)
+
+        try:
+            view.draw(game_state)
+            self.assertEqual(
+                tuple(view.screen.get_at((1, 1)))[:3],
+                agent_color(2),
+            )
+        finally:
+            view.close()
 
     def test_game_can_render_without_a_visible_display(self) -> None:
         game_state = GameState.create(

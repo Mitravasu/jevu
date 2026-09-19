@@ -111,6 +111,13 @@ def write_simulation_log(
                 }
                 for position, cooldown in final_state.fruit_tree_cooldowns.items()
             ],
+            "tile_claims": [
+                {
+                    "position": {"x": position.x, "y": position.y},
+                    "agent_id": f"A{agent_number}",
+                }
+                for position, agent_number in final_state.tile_claims.items()
+            ],
         },
     ]
 

@@ -8,16 +8,15 @@ from typing import Protocol
 
 from typesafe_sdk import Choice, TypeSafeClient
 
+from jevu.action_choice_data import (
+    EXPLORE_CRITERIA,
+    EXPLORE_INSTRUCTIONS,
+    INTERACT_CRITERIA,
+    INTERACT_INSTRUCTIONS,
+)
 from jevu.actions import ExploreAction, InteractAction, TurnActions
 from jevu.agent import AgentState
-from jevu.rules import (
-    FOOD_EAT_COST,
-    FOOD_HARVEST_AMOUNT,
-    FOOD_HUNGER_RESTORE,
-    FRUIT_TREE_COOLDOWN,
-    MAX_HUNGER,
-    MIN_HUNGER,
-)
+from jevu.rules import MAX_HUNGER, MIN_HUNGER
 
 DEFAULT_MODEL = "jev-1.13.0"
 
@@ -43,36 +42,18 @@ class SystemOneResult(Protocol):
 
 
 INTERACT_QUESTION = Choice(
-    instructions=(
-        "Which interaction should the agent take before moving to improve its "
-        "chance of surviving? Use only `agent_state`."
-    ),
+    instructions=INTERACT_INSTRUCTIONS,
     criteria={
-        InteractAction.HARVEST.value: (
-            f"Collect {FOOD_HARVEST_AMOUNT} food when "
-            "`agent_state.current_tile` is `fruit_tree`; on any other tile "
-            "or when `agent_state.current_tile_cooldown` is above 0, this has "
-            f"no effect. A harvested tree cools down for {FRUIT_TREE_COOLDOWN} "
-            "complete turns."
-        ),
-        InteractAction.EAT.value: (
-            f"Consume {FOOD_EAT_COST} food to restore "
-            f"{FOOD_HUNGER_RESTORE} hunger points when "
-            f"`agent_state.inventory.food` is at least {FOOD_EAT_COST} and "
-            f"hunger is below {MAX_HUNGER}; otherwise this has no effect."
-        ),
+        action.value: description
+        for action, description in INTERACT_CRITERIA.items()
     },
 )
 
 EXPLORE_QUESTION = Choice(
-    instructions=(
-        "Which direction should the agent move after interacting to improve its "
-        "chance of surviving? Use `agent_state.adjacent_tiles`; a missing "
-        "direction is a world boundary and leaves the agent in place."
-    ),
+    instructions=EXPLORE_INSTRUCTIONS,
     criteria={
-        action.value: f"Move one tile {action.value}."
-        for action in ExploreAction
+        action.value: description
+        for action, description in EXPLORE_CRITERIA.items()
     },
 )
 
@@ -91,11 +72,13 @@ def _state_payload(state: AgentState) -> dict[str, object]:
             "position": {"x": state.position.x, "y": state.position.y},
             "current_tile": state.current_tile.value,
             "current_tile_cooldown": state.current_tile_cooldown,
+            "current_tile_claim": state.current_tile_claim,
             "adjacent_tiles": {
                 direction: tile.value
                 for direction, tile in state.adjacent_tiles.items()
             },
             "adjacent_tile_cooldowns": state.adjacent_tile_cooldowns,
+            "adjacent_tile_claims": state.adjacent_tile_claims,
             "hunger": state.hunger,
             "hunger_scale": {
                 str(MIN_HUNGER): "the agent starves after this turn",

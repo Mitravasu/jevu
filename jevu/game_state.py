@@ -7,7 +7,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from random import Random
 
-from jevu.actions import InteractAction, TurnActions, take_turn
+from jevu.actions import InteractAction, TurnActions, claim_tile, take_turn
 from jevu.agent import Agent, AgentState
 from jevu.rules import FRUIT_TREE_COOLDOWN, HUNGER_LOSS_PER_TURN, MIN_HUNGER
 from jevu.simulation_log import write_simulation_log
@@ -49,6 +49,7 @@ class GameState:
     turn: int = 0
     action_log: tuple[ActionLogEntry, ...] = ()
     fruit_tree_cooldowns: dict[Position, int] = field(default_factory=dict)
+    tile_claims: dict[Position, int] = field(default_factory=dict)
 
     @classmethod
     def create(cls, world_config: WorldConfig, agent_count: int = 1) -> GameState:
@@ -104,6 +105,7 @@ class GameState:
         updated_agents: list[Agent] = []
         new_log_entries: list[ActionLogEntry] = []
         newly_harvested: set[Position] = set()
+        tile_claims = dict(self.tile_claims)
 
         for agent in self.agents:
             occupied_positions.remove(agent.position)
@@ -119,7 +121,11 @@ class GameState:
                         for position in newly_harvested
                     }
                 )
-            actions = action_selector(agent.state(self.world, active_cooldowns))
+            actions = action_selector(
+                agent.state(self.world, active_cooldowns, tile_claims)
+            )
+            if actions.interact is InteractAction.CLAIM:
+                tile_claims = claim_tile(agent, self.world, tile_claims)
             updated_agent = take_turn(
                 agent,
                 self.world,
@@ -179,6 +185,7 @@ class GameState:
             turn=turn,
             action_log=self.action_log + tuple(new_log_entries),
             fruit_tree_cooldowns=remaining_cooldowns,
+            tile_claims=tile_claims,
         )
 
     def run(

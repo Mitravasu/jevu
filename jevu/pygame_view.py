@@ -36,6 +36,7 @@ AGENT_COLORS = (
 END_BACKGROUND_COLOR = (35, 50, 40)
 END_TEXT_COLOR = (240, 245, 240)
 END_ACCENT_COLOR = (160, 220, 140)
+CLAIM_BORDER_MIN_WIDTH = 3
 
 
 def tile_color(tile: TileType, cooldown: int = 0) -> tuple[int, int, int]:
@@ -48,6 +49,12 @@ def tile_color(tile: TileType, cooldown: int = 0) -> tuple[int, int, int]:
     if cooldown > 0:
         return TREE_RECOVERING_COLOR
     return TREE_COLOR
+
+
+def agent_color(agent_number: int) -> tuple[int, int, int]:
+    """Return the stable color assigned to an agent number."""
+
+    return AGENT_COLORS[(agent_number - 1) % len(AGENT_COLORS)]
 
 
 def build_summary_lines(
@@ -121,12 +128,21 @@ class PygameView:
                 pygame.draw.rect(self.screen, color, rectangle)
                 pygame.draw.rect(self.screen, GRID_COLOR, rectangle, width=1)
 
+                claimed_by = game_state.tile_claims.get(position)
+                if claimed_by is not None:
+                    pygame.draw.rect(
+                        self.screen,
+                        agent_color(claimed_by),
+                        rectangle,
+                        width=max(CLAIM_BORDER_MIN_WIDTH, self.tile_size // 10),
+                    )
+
         for agent in game_state.agents:
             center = (
                 agent.position.x * self.tile_size + self.tile_size // 2,
                 agent.position.y * self.tile_size + self.tile_size // 2,
             )
-            color = AGENT_COLORS[(agent.number - 1) % len(AGENT_COLORS)]
+            color = agent_color(agent.number)
             pygame.draw.circle(self.screen, color, center, self.tile_size // 3)
             label = self.font.render(agent.id, True, TEXT_COLOR)
             self.screen.blit(label, label.get_rect(center=center))

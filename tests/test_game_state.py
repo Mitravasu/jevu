@@ -159,6 +159,25 @@ class GameStateTests(unittest.TestCase):
             {position: FRUIT_TREE_COOLDOWN},
         )
 
+    def test_agent_claims_its_current_unclaimed_tile(self) -> None:
+        game_state = GameState.create(self.config, agent_count=1)
+        starting_position = game_state.agents[0].position
+
+        def claim(_: AgentState) -> TurnActions:
+            return TurnActions(
+                interact=InteractAction.CLAIM,
+                explore=ExploreAction.UP,
+            )
+
+        with redirect_stdout(StringIO()):
+            final_state = game_state.run(
+                max_turns=1,
+                log_directory=None,
+                action_selector=claim,
+            )
+
+        self.assertEqual(final_state.tile_claims, {starting_position: 1})
+
     def test_agents_die_when_hunger_reaches_zero(self) -> None:
         game_state = GameState.create(self.config, agent_count=1)
         starving_agent = replace(

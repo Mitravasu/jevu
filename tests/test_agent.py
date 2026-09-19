@@ -39,6 +39,18 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(state.current_tile_cooldown, 2)
         self.assertEqual(state.adjacent_tile_cooldowns["up"], 1)
 
+    def test_state_contains_observable_tile_claims(self) -> None:
+        agent = Agent(number=1, position=Position(2, 2))
+        adjacent_position = self.world.adjacent_positions(agent.position)["up"]
+
+        state = agent.state(
+            self.world,
+            tile_claims={agent.position: 1, adjacent_position: 2},
+        )
+
+        self.assertEqual(state.current_tile_claim, "A1")
+        self.assertEqual(state.adjacent_tile_claims["up"], "A2")
+
     def test_rendering_displays_agent_id(self) -> None:
         agent = Agent(number=1, position=Position(0, 0))
 
