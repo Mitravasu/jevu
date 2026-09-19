@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable
 
+from jevu.rules import FRUIT_TREE_COOLDOWN
+
 if TYPE_CHECKING:
     from jevu.agent import Agent
     from jevu.game_state import ActionLogEntry, GameState
@@ -90,6 +92,7 @@ def write_simulation_log(
                 "seed": config.seed,
                 "agents": len(initial_state.agents),
                 "max_turns": max_turns,
+                "fruit_tree_cooldown": FRUIT_TREE_COOLDOWN,
             },
             "world": [
                 [tile.value for tile in row] for row in initial_state.world.tiles
@@ -101,6 +104,13 @@ def write_simulation_log(
             "type": "simulation_end",
             "turn": final_state.turn,
             "agents": [_agent_record(agent) for agent in final_state.agents],
+            "fruit_tree_cooldowns": [
+                {
+                    "position": {"x": position.x, "y": position.y},
+                    "turns_remaining": cooldown,
+                }
+                for position, cooldown in final_state.fruit_tree_cooldowns.items()
+            ],
         },
     ]
 

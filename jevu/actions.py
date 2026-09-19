@@ -58,11 +58,20 @@ def explore(agent: Agent, world: World, action: ExploreAction) -> Agent:
     return replace(agent, position=destination)
 
 
-def interact(agent: Agent, world: World, action: InteractAction) -> Agent:
+def interact(
+    agent: Agent,
+    world: World,
+    action: InteractAction,
+    *,
+    fruit_tree_available: bool = True,
+) -> Agent:
     """Apply a harvest or eat action to an agent."""
 
     if action is InteractAction.HARVEST:
-        if world.tile_at(agent.position) is TileType.FRUIT_TREE:
+        if (
+            fruit_tree_available
+            and world.tile_at(agent.position) is TileType.FRUIT_TREE
+        ):
             return replace(
                 agent,
                 inventory=agent.inventory.add_food(FOOD_HARVEST_AMOUNT),
@@ -78,8 +87,19 @@ def interact(agent: Agent, world: World, action: InteractAction) -> Agent:
     )
 
 
-def take_turn(agent: Agent, world: World, actions: TurnActions) -> Agent:
+def take_turn(
+    agent: Agent,
+    world: World,
+    actions: TurnActions,
+    *,
+    fruit_tree_available: bool = True,
+) -> Agent:
     """Interact with the current tile first, then move."""
 
-    updated_agent = interact(agent, world, actions.interact)
+    updated_agent = interact(
+        agent,
+        world,
+        actions.interact,
+        fruit_tree_available=fruit_tree_available,
+    )
     return explore(updated_agent, world, actions.explore)

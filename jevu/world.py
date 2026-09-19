@@ -83,6 +83,14 @@ class World:
     def adjacent_tiles(self, position: Position) -> dict[str, TileType]:
         """Return visible orthogonal neighbors, excluding world boundaries."""
 
+        return {
+            direction: self.tile_at(neighbor)
+            for direction, neighbor in self.adjacent_positions(position).items()
+        }
+
+    def adjacent_positions(self, position: Position) -> dict[str, Position]:
+        """Return orthogonal neighbor positions, excluding world boundaries."""
+
         if not self.contains(position):
             raise IndexError(f"Position is outside the world: {position}")
 
@@ -93,7 +101,7 @@ class World:
             "right": Position(position.x + 1, position.y),
         }
         return {
-            direction: self.tile_at(neighbor)
+            direction: neighbor
             for direction, neighbor in candidates.items()
             if self.contains(neighbor)
         }

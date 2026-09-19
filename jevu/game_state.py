@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from random import Random
 
-from jevu.actions import TurnActions, take_turn
+from jevu.actions import InteractAction, TurnActions, take_turn
 from jevu.agent import Agent, AgentState
-from jevu.rules import HUNGER_LOSS_PER_TURN, MIN_HUNGER
+from jevu.rules import FRUIT_TREE_COOLDOWN, HUNGER_LOSS_PER_TURN, MIN_HUNGER
 from jevu.simulation_log import write_simulation_log
 from jevu.world import Position, World, WorldConfig
 
@@ -48,6 +48,7 @@ class GameState:
     agents: tuple[Agent, ...]
     turn: int = 0
     action_log: tuple[ActionLogEntry, ...] = ()
+    fruit_tree_cooldowns: dict[Position, int] = field(default_factory=dict)
 
     @classmethod
     def create(cls, world_config: WorldConfig, agent_count: int = 1) -> GameState:
@@ -102,11 +103,34 @@ class GameState:
         occupied_positions = {agent.position for agent in self.agents}
         updated_agents: list[Agent] = []
         new_log_entries: list[ActionLogEntry] = []
+        newly_harvested: set[Position] = set()
 
         for agent in self.agents:
             occupied_positions.remove(agent.position)
-            actions = action_selector(agent.state(self.world))
-            updated_agent = take_turn(agent, self.world, actions)
+            active_cooldowns = {
+                position: cooldown
+                for position, cooldown in self.fruit_tree_cooldowns.items()
+                if cooldown > 0
+            }
+            if FRUIT_TREE_COOLDOWN > 0:
+                active_cooldowns.update(
+                    {
+                        position: FRUIT_TREE_COOLDOWN
+                        for position in newly_harvested
+                    }
+                )
+            actions = action_selector(agent.state(self.world, active_cooldowns))
+            updated_agent = take_turn(
+                agent,
+                self.world,
+                actions,
+                fruit_tree_available=active_cooldowns.get(agent.position, 0) == 0,
+            )
+            if (
+                actions.interact is InteractAction.HARVEST
+                and updated_agent.inventory.food > agent.inventory.food
+            ):
+                newly_harvested.add(agent.position)
 
             if updated_agent.position in occupied_positions:
                 updated_agent = replace(updated_agent, position=agent.position)
@@ -136,11 +160,25 @@ class GameState:
                 updated_agents.append(updated_agent)
                 occupied_positions.add(updated_agent.position)
 
+        remaining_cooldowns = {
+            position: cooldown - 1
+            for position, cooldown in self.fruit_tree_cooldowns.items()
+            if cooldown > 1
+        }
+        if FRUIT_TREE_COOLDOWN > 0:
+            remaining_cooldowns.update(
+                {
+                    position: FRUIT_TREE_COOLDOWN
+                    for position in newly_harvested
+                }
+            )
+
         return replace(
             self,
             agents=tuple(updated_agents),
             turn=turn,
             action_log=self.action_log + tuple(new_log_entries),
+            fruit_tree_cooldowns=remaining_cooldowns,
         )
 
     def run(

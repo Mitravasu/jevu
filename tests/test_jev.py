@@ -5,7 +5,12 @@ from types import SimpleNamespace
 from jevu.actions import ExploreAction, InteractAction, TurnActions
 from jevu.agent import Agent
 from jevu.jev import DEFAULT_MODEL, INTERACT_QUESTION, JevActionSelector
-from jevu.rules import FOOD_EAT_COST, FOOD_HARVEST_AMOUNT, FOOD_HUNGER_RESTORE
+from jevu.rules import (
+    FOOD_EAT_COST,
+    FOOD_HARVEST_AMOUNT,
+    FOOD_HUNGER_RESTORE,
+    FRUIT_TREE_COOLDOWN,
+)
 from jevu.world import Position, TileType, World, WorldConfig
 
 
@@ -51,6 +56,7 @@ class JevActionSelectorTests(unittest.TestCase):
         eat = INTERACT_QUESTION.criteria[InteractAction.EAT.value]
 
         self.assertIn(str(FOOD_HARVEST_AMOUNT), harvest)
+        self.assertIn(str(FRUIT_TREE_COOLDOWN), harvest)
         self.assertIn(str(FOOD_EAT_COST), eat)
         self.assertIn(str(FOOD_HUNGER_RESTORE), eat)
 
@@ -76,6 +82,7 @@ class JevActionSelectorTests(unittest.TestCase):
         )
         self.assertEqual(set(client.questions), {"interact", "explore"})
         self.assertEqual(client.state["agent_state"]["id"], "A1")
+        self.assertEqual(client.state["agent_state"]["current_tile_cooldown"], 0)
         self.assertEqual(
             client.state["agent_state"]["adjacent_tiles"],
             {"up": "fruit_tree", "left": "blank"},

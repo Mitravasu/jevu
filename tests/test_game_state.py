@@ -4,10 +4,16 @@ from dataclasses import replace
 from io import StringIO
 
 from jevu.actions import ExploreAction, InteractAction, TurnActions
-from jevu.agent import AgentState
+from jevu.agent import Agent, AgentState
 from jevu.game_state import GameState
-from jevu.rules import HUNGER_LOSS_PER_TURN, INITIAL_HUNGER, MIN_HUNGER
-from jevu.world import WorldConfig
+from jevu.rules import (
+    FOOD_HARVEST_AMOUNT,
+    FRUIT_TREE_COOLDOWN,
+    HUNGER_LOSS_PER_TURN,
+    INITIAL_HUNGER,
+    MIN_HUNGER,
+)
+from jevu.world import Position, TileType, World, WorldConfig
 
 
 def select_actions(_: AgentState) -> TurnActions:
@@ -113,6 +119,45 @@ class GameStateTests(unittest.TestCase):
             )
 
         self.assertEqual(first_result, second_result)
+
+    def test_harvested_tree_cools_down_before_becoming_available(self) -> None:
+        position = Position(0, 0)
+        world = World(
+            config=WorldConfig(width=1, height=1, fruit_tree_density=1.0),
+            tiles=((TileType.FRUIT_TREE,),),
+        )
+        game_state = GameState(
+            world=world,
+            agents=(Agent(number=1, position=position),),
+        )
+        observed_cooldowns = []
+
+        def harvest(state: AgentState) -> TurnActions:
+            observed_cooldowns.append(state.current_tile_cooldown)
+            return TurnActions(
+                interact=InteractAction.HARVEST,
+                explore=ExploreAction.UP,
+            )
+
+        with redirect_stdout(StringIO()):
+            final_state = game_state.run(
+                max_turns=FRUIT_TREE_COOLDOWN + 2,
+                log_directory=None,
+                action_selector=harvest,
+            )
+
+        self.assertEqual(
+            observed_cooldowns,
+            [0, *range(FRUIT_TREE_COOLDOWN, 0, -1), 0],
+        )
+        self.assertEqual(
+            final_state.agents[0].inventory.food,
+            FOOD_HARVEST_AMOUNT * 2,
+        )
+        self.assertEqual(
+            final_state.fruit_tree_cooldowns,
+            {position: FRUIT_TREE_COOLDOWN},
+        )
 
     def test_agents_die_when_hunger_reaches_zero(self) -> None:
         game_state = GameState.create(self.config, agent_count=1)

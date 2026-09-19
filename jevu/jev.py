@@ -14,6 +14,7 @@ from jevu.rules import (
     FOOD_EAT_COST,
     FOOD_HARVEST_AMOUNT,
     FOOD_HUNGER_RESTORE,
+    FRUIT_TREE_COOLDOWN,
     MAX_HUNGER,
     MIN_HUNGER,
 )
@@ -50,7 +51,9 @@ INTERACT_QUESTION = Choice(
         InteractAction.HARVEST.value: (
             f"Collect {FOOD_HARVEST_AMOUNT} food when "
             "`agent_state.current_tile` is `fruit_tree`; on any other tile "
-            "this has no effect."
+            "or when `agent_state.current_tile_cooldown` is above 0, this has "
+            f"no effect. A harvested tree cools down for {FRUIT_TREE_COOLDOWN} "
+            "complete turns."
         ),
         InteractAction.EAT.value: (
             f"Consume {FOOD_EAT_COST} food to restore "
@@ -87,10 +90,12 @@ def _state_payload(state: AgentState) -> dict[str, object]:
             "id": state.id,
             "position": {"x": state.position.x, "y": state.position.y},
             "current_tile": state.current_tile.value,
+            "current_tile_cooldown": state.current_tile_cooldown,
             "adjacent_tiles": {
                 direction: tile.value
                 for direction, tile in state.adjacent_tiles.items()
             },
+            "adjacent_tile_cooldowns": state.adjacent_tile_cooldowns,
             "hunger": state.hunger,
             "hunger_scale": {
                 str(MIN_HUNGER): "the agent starves after this turn",

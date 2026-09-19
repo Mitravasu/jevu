@@ -10,10 +10,13 @@ import pygame
 from jevu.actions import TurnActions
 from jevu.agent import AgentState
 from jevu.game_state import GameState
-from jevu.world import TileType
+from jevu.rules import FRUIT_TREE_COOLDOWN
+from jevu.world import Position, TileType
 
 BLANK_COLOR = (190, 225, 170)
 TREE_COLOR = (200, 70, 70)
+TREE_COOLDOWN_COLOR = (139, 69, 19)
+TREE_RECOVERING_COLOR = (0, 100, 0)
 GRID_COLOR = (80, 100, 75)
 TEXT_COLOR = (20, 20, 20)
 AGENT_COLORS = (
@@ -33,6 +36,18 @@ AGENT_COLORS = (
 END_BACKGROUND_COLOR = (35, 50, 40)
 END_TEXT_COLOR = (240, 245, 240)
 END_ACCENT_COLOR = (160, 220, 140)
+
+
+def tile_color(tile: TileType, cooldown: int = 0) -> tuple[int, int, int]:
+    """Return a tile color that shows fruit-tree recovery state."""
+
+    if tile is not TileType.FRUIT_TREE:
+        return BLANK_COLOR
+    if cooldown >= FRUIT_TREE_COOLDOWN:
+        return TREE_COOLDOWN_COLOR
+    if cooldown > 0:
+        return TREE_RECOVERING_COLOR
+    return TREE_COLOR
 
 
 def build_summary_lines(
@@ -92,7 +107,11 @@ class PygameView:
 
         for y, row in enumerate(game_state.world.tiles):
             for x, tile in enumerate(row):
-                color = TREE_COLOR if tile is TileType.FRUIT_TREE else BLANK_COLOR
+                position = Position(x, y)
+                color = tile_color(
+                    tile,
+                    game_state.fruit_tree_cooldowns.get(position, 0),
+                )
                 rectangle = pygame.Rect(
                     x * self.tile_size,
                     y * self.tile_size,

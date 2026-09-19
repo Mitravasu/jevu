@@ -13,12 +13,15 @@ from jevu.game_state import GameState
 from jevu.pygame_view import (
     AGENT_COLORS,
     BLANK_COLOR,
+    TREE_COOLDOWN_COLOR,
     TREE_COLOR,
+    TREE_RECOVERING_COLOR,
     build_summary_lines,
     run_pygame,
+    tile_color,
 )
-from jevu.world import WorldConfig
-from jevu.rules import HUNGER_LOSS_PER_TURN, MIN_HUNGER
+from jevu.world import TileType, WorldConfig
+from jevu.rules import FRUIT_TREE_COOLDOWN, HUNGER_LOSS_PER_TURN, MIN_HUNGER
 
 
 def select_actions(_: AgentState) -> TurnActions:
@@ -33,6 +36,17 @@ class PygameViewTests(unittest.TestCase):
         self.assertGreater(BLANK_COLOR[1], BLANK_COLOR[0])
         self.assertGreater(TREE_COLOR[0], TREE_COLOR[1])
         self.assertEqual(len(AGENT_COLORS), len(set(AGENT_COLORS)))
+
+    def test_tree_color_progresses_from_brown_to_dark_green_to_red(self) -> None:
+        self.assertEqual(
+            tile_color(TileType.FRUIT_TREE, FRUIT_TREE_COOLDOWN),
+            TREE_COOLDOWN_COLOR,
+        )
+        self.assertEqual(
+            tile_color(TileType.FRUIT_TREE, FRUIT_TREE_COOLDOWN - 1),
+            TREE_RECOVERING_COLOR,
+        )
+        self.assertEqual(tile_color(TileType.FRUIT_TREE, 0), TREE_COLOR)
 
     def test_game_can_render_without_a_visible_display(self) -> None:
         game_state = GameState.create(

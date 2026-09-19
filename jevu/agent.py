@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from jevu.inventory import InventoryState
@@ -16,7 +17,9 @@ class AgentState:
     id: str
     position: Position
     current_tile: TileType
+    current_tile_cooldown: int
     adjacent_tiles: dict[str, TileType]
+    adjacent_tile_cooldowns: dict[str, int]
     hunger: int
     inventory: InventoryState
 
@@ -42,14 +45,29 @@ class Agent:
     def id(self) -> str:
         return f"A{self.number}"
 
-    def state(self, world: World) -> AgentState:
+    def state(
+        self,
+        world: World,
+        fruit_tree_cooldowns: Mapping[Position, int] | None = None,
+    ) -> AgentState:
         """Return the agent's current state and local observation."""
+
+        cooldowns = fruit_tree_cooldowns or {}
+        adjacent_positions = world.adjacent_positions(self.position)
 
         return AgentState(
             id=self.id,
             position=self.position,
             current_tile=world.tile_at(self.position),
-            adjacent_tiles=world.adjacent_tiles(self.position),
+            current_tile_cooldown=cooldowns.get(self.position, 0),
+            adjacent_tiles={
+                direction: world.tile_at(position)
+                for direction, position in adjacent_positions.items()
+            },
+            adjacent_tile_cooldowns={
+                direction: cooldowns.get(position, 0)
+                for direction, position in adjacent_positions.items()
+            },
             hunger=self.hunger,
             inventory=self.inventory,
         )

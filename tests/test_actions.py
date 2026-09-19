@@ -75,6 +75,18 @@ class ActionTests(unittest.TestCase):
             FOOD_HARVEST_AMOUNT,
         )
 
+    def test_harvest_does_nothing_while_tree_is_cooling_down(self) -> None:
+        tree_agent = Agent(number=1, position=Position(1, 0))
+
+        updated = interact(
+            tree_agent,
+            self.world,
+            InteractAction.HARVEST,
+            fruit_tree_available=False,
+        )
+
+        self.assertEqual(updated, tree_agent)
+
     def test_eat_consumes_food_and_restores_configured_hunger(self) -> None:
         agent = Agent(
             number=1,
