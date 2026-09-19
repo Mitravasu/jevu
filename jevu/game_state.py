@@ -9,9 +9,15 @@ from random import Random
 
 from jevu.actions import InteractAction, TurnActions, claim_tile, take_turn
 from jevu.agent import Agent, AgentState
-from jevu.rules import FRUIT_TREE_COOLDOWN, HUNGER_LOSS_PER_TURN, MIN_HUNGER
+from jevu.decision import ActionSelection, TurnDecision
+from jevu.rules import (
+    FOOD_HARVEST_AMOUNT,
+    FRUIT_TREE_COOLDOWN,
+    HUNGER_LOSS_PER_TURN,
+    MIN_HUNGER,
+)
 from jevu.simulation_log import write_simulation_log
-from jevu.world import Position, World, WorldConfig
+from jevu.world import Position, TileType, World, WorldConfig
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,9 +33,11 @@ class ActionLogEntry:
     end_hunger: int
     start_food: int
     end_food: int
+    automatic_harvest_food: int = 0
+    decision: TurnDecision | None = None
 
     def __str__(self) -> str:
-        return (
+        summary = (
             f"Turn {self.turn} - {self.agent_id}: "
             f"position=({self.start_position.x}, {self.start_position.y}) -> "
             f"({self.end_position.x}, {self.end_position.y}), "
@@ -37,6 +45,23 @@ class ActionLogEntry:
             f"food={self.start_food} -> {self.end_food}, "
             f"interact={self.actions.interact.value}, "
             f"explore={self.actions.explore.value}"
+        )
+        if self.automatic_harvest_food:
+            summary += f", automatic_harvest_food={self.automatic_harvest_food}"
+        if self.decision is None:
+            return summary
+        interact_probability = self.decision.interact.probabilities[
+            self.decision.interact.choice
+        ]
+        explore_probability = self.decision.explore.probabilities[
+            self.decision.explore.choice
+        ]
+        return (
+            f"{summary}, "
+            f"interact_probability={interact_probability:.3f}, "
+            f"interact_confidence={self.decision.interact.confidence:.3f}, "
+            f"explore_probability={explore_probability:.3f}, "
+            f"explore_confidence={self.decision.explore.confidence:.3f}"
         )
 
 
@@ -96,18 +121,41 @@ class GameState:
 
     def _run_turn(
         self,
-        action_selector: Callable[[AgentState], TurnActions],
+        action_selector: Callable[[AgentState], ActionSelection],
     ) -> GameState:
         """Run one selected turn for every living agent."""
 
         turn = self.turn + 1
-        occupied_positions = {agent.position for agent in self.agents}
+        automatic_food: dict[int, int] = {}
+        newly_harvested: set[Position] = set()
+        living_agent_numbers = {agent.number for agent in self.agents}
+        for position, owner_number in self.tile_claims.items():
+            if owner_number not in living_agent_numbers:
+                continue
+            if self.world.tile_at(position) is not TileType.FRUIT_TREE:
+                continue
+            if self.fruit_tree_cooldowns.get(position, 0) > 0:
+                continue
+            automatic_food[owner_number] = (
+                automatic_food.get(owner_number, 0) + FOOD_HARVEST_AMOUNT
+            )
+            newly_harvested.add(position)
+
+        turn_agents = tuple(
+            replace(
+                agent,
+                inventory=agent.inventory.add_food(automatic_food[agent.number]),
+            )
+            if agent.number in automatic_food
+            else agent
+            for agent in self.agents
+        )
+        occupied_positions = {agent.position for agent in turn_agents}
         updated_agents: list[Agent] = []
         new_log_entries: list[ActionLogEntry] = []
-        newly_harvested: set[Position] = set()
         tile_claims = dict(self.tile_claims)
 
-        for agent in self.agents:
+        for agent in turn_agents:
             occupied_positions.remove(agent.position)
             active_cooldowns = {
                 position: cooldown
@@ -121,9 +169,11 @@ class GameState:
                         for position in newly_harvested
                     }
                 )
-            actions = action_selector(
+            selection = action_selector(
                 agent.state(self.world, active_cooldowns, tile_claims)
             )
+            decision = selection if isinstance(selection, TurnDecision) else None
+            actions = decision.actions if decision is not None else selection
             if actions.interact is InteractAction.CLAIM:
                 tile_claims = claim_tile(agent, self.world, tile_claims)
             updated_agent = take_turn(
@@ -159,6 +209,8 @@ class GameState:
                     end_hunger=updated_agent.hunger,
                     start_food=agent.inventory.food,
                     end_food=updated_agent.inventory.food,
+                    automatic_harvest_food=automatic_food.get(agent.number, 0),
+                    decision=decision,
                 )
             )
 
@@ -194,7 +246,7 @@ class GameState:
         log_directory: str | Path | None = "logs",
         state_callback: Callable[[GameState], bool] | None = None,
         *,
-        action_selector: Callable[[AgentState], TurnActions],
+        action_selector: Callable[[AgentState], ActionSelection],
     ) -> GameState:
         """Run a simulation and return its final state."""
 

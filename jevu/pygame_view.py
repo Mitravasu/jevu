@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pygame
 
-from jevu.actions import TurnActions
 from jevu.agent import AgentState
+from jevu.decision import ActionSelection
 from jevu.game_state import GameState
 from jevu.rules import FRUIT_TREE_COOLDOWN
 from jevu.world import Position, TileType
@@ -203,7 +203,7 @@ class PygameView:
 def run_pygame(
     game_state: GameState,
     max_turns: int,
-    action_selector: Callable[[AgentState], TurnActions],
+    action_selector: Callable[[AgentState], ActionSelection],
     turns_per_second: float = 2.0,
     log_directory: str | Path | None = "logs",
     hold_open: bool = True,

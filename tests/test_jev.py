@@ -3,9 +3,15 @@ from unittest.mock import patch
 from types import SimpleNamespace
 
 from jevu.action_choice_data import EXPLORE_CRITERIA, INTERACT_CRITERIA
+from jevu.agent_goals import AGENT_GOALS, GAME_RULES
 from jevu.actions import ExploreAction, InteractAction, TurnActions
 from jevu.agent import Agent
-from jevu.jev import DEFAULT_MODEL, INTERACT_QUESTION, JevActionSelector
+from jevu.jev import (
+    DEFAULT_MODEL,
+    EXPLORE_QUESTION,
+    INTERACT_QUESTION,
+    JevActionSelector,
+)
 from jevu.rules import (
     FOOD_EAT_COST,
     FOOD_HARVEST_AMOUNT,
@@ -26,8 +32,27 @@ class FakeClient:
         self.questions = questions
         return SimpleNamespace(
             choices={
-                "interact": SimpleNamespace(choice="eat"),
-                "explore": SimpleNamespace(choice="left"),
+                "interact": SimpleNamespace(
+                    choice="eat",
+                    probabilities={
+                        "harvest": 0.1,
+                        "eat": 0.6,
+                        "claim": 0.2,
+                        "none": 0.1,
+                    },
+                    confidence=0.6,
+                ),
+                "explore": SimpleNamespace(
+                    choice="left",
+                    probabilities={
+                        "up": 0.1,
+                        "down": 0.1,
+                        "left": 0.7,
+                        "right": 0.05,
+                        "stay": 0.05,
+                    },
+                    confidence=0.5,
+                ),
             }
         )
 
@@ -39,6 +64,12 @@ class JevActionSelectorTests(unittest.TestCase):
     def test_choice_data_covers_every_action(self) -> None:
         self.assertEqual(set(INTERACT_CRITERIA), set(InteractAction))
         self.assertEqual(set(EXPLORE_CRITERIA), set(ExploreAction))
+
+    def test_stay_does_not_imply_a_survival_advantage(self) -> None:
+        stay = EXPLORE_CRITERIA[ExploreAction.STAY]
+
+        self.assertIn("only when every available move is less useful", stay)
+        self.assertIn("does not conserve hunger", stay)
 
     @patch.dict("os.environ", {"JEV_API_TOKEN": "test-token"})
     @patch("jevu.jev.TypeSafeClient")
@@ -77,16 +108,23 @@ class JevActionSelectorTests(unittest.TestCase):
         client = FakeClient()
         selector = JevActionSelector(client=client)
 
-        actions = selector(Agent(number=1, position=Position(1, 1)).state(world))
+        decision = selector(Agent(number=1, position=Position(1, 1)).state(world))
 
         self.assertEqual(
-            actions,
+            decision.actions,
             TurnActions(
                 interact=InteractAction.EAT,
                 explore=ExploreAction.LEFT,
             ),
         )
+        self.assertEqual(
+            decision.interact.probabilities,
+            {"harvest": 0.1, "eat": 0.6, "claim": 0.2, "none": 0.1},
+        )
+        self.assertEqual(decision.interact.confidence, 0.6)
         self.assertEqual(set(client.questions), {"interact", "explore"})
+        self.assertEqual(client.state["goals"], list(AGENT_GOALS))
+        self.assertEqual(client.state["rules"], list(GAME_RULES))
         self.assertEqual(client.state["agent_state"]["id"], "A1")
         self.assertEqual(client.state["agent_state"]["current_tile_cooldown"], 0)
         self.assertIsNone(client.state["agent_state"]["current_tile_claim"])
@@ -94,6 +132,11 @@ class JevActionSelectorTests(unittest.TestCase):
             client.state["agent_state"]["adjacent_tiles"],
             {"up": "fruit_tree", "left": "blank"},
         )
+
+    def test_goals_are_state_not_question_instructions(self) -> None:
+        self.assertNotIn("claim as many", INTERACT_QUESTION.instructions.lower())
+        self.assertNotIn("claim as many", EXPLORE_QUESTION.instructions.lower())
+        self.assertIn("Claim as many tiles as possible.", AGENT_GOALS)
 
     def test_does_not_close_an_injected_client(self) -> None:
         client = FakeClient()

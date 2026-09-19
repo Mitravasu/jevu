@@ -178,6 +178,44 @@ class GameStateTests(unittest.TestCase):
 
         self.assertEqual(final_state.tile_claims, {starting_position: 1})
 
+    def test_claimed_tree_automatically_harvests_for_its_owner(self) -> None:
+        position = Position(0, 0)
+        world = World(
+            config=WorldConfig(width=1, height=1, fruit_tree_density=1.0),
+            tiles=((TileType.FRUIT_TREE,),),
+        )
+        game_state = GameState(
+            world=world,
+            agents=(Agent(number=1, position=position),),
+        )
+
+        def claim(_: AgentState) -> TurnActions:
+            return TurnActions(
+                interact=InteractAction.CLAIM,
+                explore=ExploreAction.UP,
+            )
+
+        with redirect_stdout(StringIO()):
+            final_state = game_state.run(
+                max_turns=FRUIT_TREE_COOLDOWN + 3,
+                log_directory=None,
+                action_selector=claim,
+            )
+
+        self.assertEqual(
+            final_state.agents[0].inventory.food,
+            FOOD_HARVEST_AMOUNT * 2,
+        )
+        automatic_harvests = [
+            entry.automatic_harvest_food
+            for entry in final_state.action_log
+            if entry.automatic_harvest_food
+        ]
+        self.assertEqual(
+            automatic_harvests,
+            [FOOD_HARVEST_AMOUNT, FOOD_HARVEST_AMOUNT],
+        )
+
     def test_agents_die_when_hunger_reaches_zero(self) -> None:
         game_state = GameState.create(self.config, agent_count=1)
         starving_agent = replace(

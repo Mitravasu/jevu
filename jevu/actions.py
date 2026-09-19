@@ -23,6 +23,7 @@ class ExploreAction(StrEnum):
     DOWN = "down"
     LEFT = "left"
     RIGHT = "right"
+    STAY = "stay"
 
 
 class InteractAction(StrEnum):
@@ -31,6 +32,7 @@ class InteractAction(StrEnum):
     HARVEST = "harvest"
     EAT = "eat"
     CLAIM = "claim"
+    NONE = "none"
 
 
 type Action = ExploreAction | InteractAction
@@ -52,6 +54,7 @@ def explore(agent: Agent, world: World, action: ExploreAction) -> Agent:
         ExploreAction.DOWN: (0, 1),
         ExploreAction.LEFT: (-1, 0),
         ExploreAction.RIGHT: (1, 0),
+        ExploreAction.STAY: (0, 0),
     }
     dx, dy = offsets[action]
     destination = Position(agent.position.x + dx, agent.position.y + dy)
@@ -81,6 +84,9 @@ def interact(
         return agent
 
     if action is InteractAction.CLAIM:
+        return agent
+
+    if action is InteractAction.NONE:
         return agent
 
     if agent.inventory.food < FOOD_EAT_COST or agent.hunger == MAX_HUNGER:

@@ -63,6 +63,11 @@ class ActionTests(unittest.TestCase):
             bottom_right_agent,
         )
 
+    def test_stay_keeps_agent_in_place(self) -> None:
+        agent = Agent(number=1, position=Position(0, 0))
+
+        self.assertEqual(explore(agent, self.world, ExploreAction.STAY), agent)
+
     def test_harvest_collects_fruit_only_on_tree(self) -> None:
         blank_agent = Agent(number=1, position=Position(0, 0))
         tree_agent = Agent(number=1, position=Position(1, 0))
@@ -144,6 +149,11 @@ class ActionTests(unittest.TestCase):
             interact(full_agent, self.world, InteractAction.EAT),
             full_agent,
         )
+
+    def test_none_interaction_keeps_agent_unchanged(self) -> None:
+        agent = Agent(number=1, position=Position(0, 0))
+
+        self.assertEqual(interact(agent, self.world, InteractAction.NONE), agent)
 
     def test_turn_interacts_before_moving(self) -> None:
         agent = Agent(number=1, position=Position(1, 0))

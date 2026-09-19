@@ -16,6 +16,8 @@ from jevu.action_choice_data import (
 )
 from jevu.actions import ExploreAction, InteractAction, TurnActions
 from jevu.agent import AgentState
+from jevu.agent_goals import AGENT_GOALS, GAME_RULES
+from jevu.decision import ChoiceTrace, TurnDecision
 from jevu.rules import MAX_HUNGER, MIN_HUNGER
 
 DEFAULT_MODEL = "jev-1.13.0"
@@ -35,6 +37,8 @@ class SystemOneClient(Protocol):
 
 class ChoiceResult(Protocol):
     choice: str
+    probabilities: Mapping[str, float]
+    confidence: float
 
 
 class SystemOneResult(Protocol):
@@ -67,6 +71,8 @@ def _state_payload(state: AgentState) -> dict[str, object]:
     """Convert domain state into the JSON state Jev evaluates."""
 
     return {
+        "goals": list(AGENT_GOALS),
+        "rules": list(GAME_RULES),
         "agent_state": {
             "id": state.id,
             "position": {"x": state.position.x, "y": state.position.y},
@@ -106,14 +112,27 @@ class JevActionSelector:
             client = TypeSafeClient(api_key=api_key, model=model)
         self._client = client
 
-    def __call__(self, state: AgentState) -> TurnActions:
+    def __call__(self, state: AgentState) -> TurnDecision:
         result = self._client.system_one(
             state=_state_payload(state),
             questions=QUESTIONS,
         )
-        return TurnActions(
+        actions = TurnActions(
             interact=InteractAction(result.choices["interact"].choice),
             explore=ExploreAction(result.choices["explore"].choice),
+        )
+        return TurnDecision(
+            actions=actions,
+            interact=self._choice_trace(result.choices["interact"]),
+            explore=self._choice_trace(result.choices["explore"]),
+        )
+
+    @staticmethod
+    def _choice_trace(result: ChoiceResult) -> ChoiceTrace:
+        return ChoiceTrace(
+            choice=result.choice,
+            probabilities=dict(result.probabilities),
+            confidence=result.confidence,
         )
 
     def close(self) -> None:

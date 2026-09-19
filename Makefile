@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup lock run view test check
+.PHONY: help setup lock run view agent-actions test check
 
 help: ## Show available commands
 	@awk 'BEGIN {FS = ":.*## "; print "Usage: make <target> [ARGS=\"...\"]\n"} /^[a-zA-Z_-]+:.*## / {printf "  %-10s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -16,6 +16,9 @@ run: ## Run a game (ARGS="--width N --height N --tree-density F --seed N --agent
 
 view: ## Animate a game (ARGS="same as run, plus --turns-per-second F")
 	uv run python main.py --pygame $(ARGS)
+
+agent-actions: ## Print one agent's actions (ARGS="logs/SIMULATION.jsonl A1")
+	uv run python extract_agent_actions.py $(ARGS)
 
 test: ## Run the test suite
 	uv run python -m unittest discover -s tests -v

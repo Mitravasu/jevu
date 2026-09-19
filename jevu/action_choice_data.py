@@ -10,8 +10,8 @@ from jevu.rules import (
 )
 
 INTERACT_INSTRUCTIONS = (
-    "Which interaction should the agent take before moving to survive and "
-    "claim as many tiles as possible? Use only `agent_state`."
+    "Which interaction should the agent take before moving? Use `goals` and "
+    "`agent_state`."
 )
 
 INTERACT_CRITERIA = {
@@ -33,16 +33,24 @@ INTERACT_CRITERIA = {
         "`agent_state.current_tile_claim` is null. A claimed tile cannot "
         "be claimed again by any agent."
     ),
+    InteractAction.NONE: (
+        "Do nothing when harvesting, eating, and claiming would all have no "
+        "useful effect."
+    ),
 }
 
 EXPLORE_INSTRUCTIONS = (
-    "Which direction should the agent move after interacting to survive and "
-    "reach useful unclaimed tiles? Use `agent_state.adjacent_tiles` and "
-    "`agent_state.adjacent_tile_claims`; a missing direction is a world "
-    "boundary and leaves the agent in place."
+    "Which direction should the agent move after interacting? Use `goals`, "
+    "`agent_state.adjacent_tiles`, and `agent_state.adjacent_tile_claims`; a "
+    "missing direction is a world boundary and leaves the agent in place."
 )
 
 EXPLORE_CRITERIA = {
-    action: f"Move one tile {action.value}."
+    action: (
+        "Remain on the current tile only when every available move is less useful. "
+        "Staying does not conserve hunger and cannot discover or claim new tiles."
+        if action is ExploreAction.STAY
+        else f"Move one tile {action.value}."
+    )
     for action in ExploreAction
 }

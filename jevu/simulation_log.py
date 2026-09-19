@@ -24,7 +24,7 @@ def _agent_record(agent: Agent) -> dict[str, Any]:
 
 
 def _action_record(entry: ActionLogEntry) -> dict[str, Any]:
-    return {
+    record = {
         "type": "action",
         "turn": entry.turn,
         "agent_id": entry.agent_id,
@@ -32,6 +32,7 @@ def _action_record(entry: ActionLogEntry) -> dict[str, Any]:
             "interact": entry.actions.interact.value,
             "explore": entry.actions.explore.value,
         },
+        "automatic_harvest_food": entry.automatic_harvest_food,
         "start": {
             "position": {
                 "x": entry.start_position.x,
@@ -49,6 +50,20 @@ def _action_record(entry: ActionLogEntry) -> dict[str, Any]:
             "food": entry.end_food,
         },
     }
+    if entry.decision is not None:
+        record["decision"] = {
+            "interact": {
+                "choice": entry.decision.interact.choice,
+                "probabilities": entry.decision.interact.probabilities,
+                "confidence": entry.decision.interact.confidence,
+            },
+            "explore": {
+                "choice": entry.decision.explore.choice,
+                "probabilities": entry.decision.explore.probabilities,
+                "confidence": entry.decision.explore.confidence,
+            },
+        }
+    return record
 
 
 def _density_label(density: float) -> str:

@@ -16,3 +16,9 @@ selects typed `TurnActions`; it does not mutate the game.
 
 Gameplay tuning values such as the hunger range, per-turn hunger loss, harvest
 amount, eating cost, and hunger restoration live together in `jevu/rules.py`.
+
+Extract one agent's actions from a simulation log as plain-English sentences:
+
+```sh
+make agent-actions ARGS="logs/SIMULATION.jsonl A1"
+```
