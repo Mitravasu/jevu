@@ -1,0 +1,6 @@
+[project]
+name = "jevu"
+version = "0.1.0"
+description = "JevU"
+requires-python = ">=3.12"
+dependencies = []
