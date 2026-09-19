@@ -1,11 +1,11 @@
 import argparse
 
-from jevu.agent import place_agents
-from jevu.world import World, WorldConfig
+from jevu.game_state import GameState
+from jevu.world import WorldConfig
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate a JevU world")
+    parser = argparse.ArgumentParser(description="Run a JevU game")
     parser.add_argument("--width", type=int, default=10)
     parser.add_argument("--height", type=int, default=10)
     parser.add_argument("--tree-density", type=float, default=0.15)
@@ -16,16 +16,16 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    world = World.generate(
+    game_state = GameState.create(
         WorldConfig(
             width=args.width,
             height=args.height,
             fruit_tree_density=args.tree_density,
             seed=args.seed,
-        )
+        ),
+        agent_count=args.agents,
     )
-    agents = place_agents(world, args.agents)
-    print(world.render_ascii(agents))
+    game_state.run()
 
 
 if __name__ == "__main__":

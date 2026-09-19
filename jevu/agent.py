@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from random import Random
 
 from jevu.world import Position, TileType, World
 
@@ -52,24 +51,3 @@ class Agent:
             hunger=self.hunger,
             carried_fruit=self.carried_fruit,
         )
-
-
-def place_agents(world: World, count: int) -> tuple[Agent, ...]:
-    """Place agents at unique positions determined by the world's seed."""
-
-    available_positions = [
-        Position(x, y)
-        for y in range(world.config.height)
-        for x in range(world.config.width)
-    ]
-    if count < 0:
-        raise ValueError("Agent count cannot be negative")
-    if count > len(available_positions):
-        raise ValueError("Agent count cannot exceed the number of world tiles")
-
-    random = Random(world.config.seed)
-    positions = random.sample(available_positions, count)
-    return tuple(
-        Agent(number=number, position=position)
-        for number, position in enumerate(positions, start=1)
-    )
