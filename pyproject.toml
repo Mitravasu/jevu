@@ -5,4 +5,5 @@ description = "JevU"
 requires-python = ">=3.12"
 dependencies = [
     "pygame>=2.6.1",
+    "typesafe-sdk>=0.7.0",
 ]

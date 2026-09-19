@@ -3,8 +3,18 @@ from contextlib import redirect_stdout
 from dataclasses import replace
 from io import StringIO
 
+from jevu.actions import ExploreAction, InteractAction, TurnActions
+from jevu.agent import AgentState
 from jevu.game_state import GameState
+from jevu.rules import HUNGER_LOSS_PER_TURN, INITIAL_HUNGER, MIN_HUNGER
 from jevu.world import WorldConfig
+
+
+def select_actions(_: AgentState) -> TurnActions:
+    return TurnActions(
+        interact=InteractAction.HARVEST,
+        explore=ExploreAction.UP,
+    )
 
 
 class GameStateTests(unittest.TestCase):
@@ -40,7 +50,7 @@ class GameStateTests(unittest.TestCase):
         output = StringIO()
 
         with redirect_stdout(output):
-            game_state.run(log_directory=None)
+            game_state.run(log_directory=None, action_selector=select_actions)
 
         rendered_output = output.getvalue()
         self.assertIn("Start state:\n" + game_state.render_ascii(), rendered_output)
@@ -58,18 +68,32 @@ class GameStateTests(unittest.TestCase):
         game_state = GameState.create(blank_config, agent_count=2)
 
         with redirect_stdout(StringIO()):
-            final_state = game_state.run(max_turns=3, log_directory=None)
+            final_state = game_state.run(
+                max_turns=3,
+                log_directory=None,
+                action_selector=select_actions,
+            )
 
         self.assertEqual(final_state.turn, 3)
         self.assertEqual(len(final_state.action_log), 6)
-        self.assertTrue(all(agent.hunger == 7 for agent in final_state.agents))
+        expected_hunger = INITIAL_HUNGER - 3 * HUNGER_LOSS_PER_TURN
+        self.assertTrue(
+            all(agent.hunger == expected_hunger for agent in final_state.agents)
+        )
         first_entry = final_state.action_log[0]
         self.assertEqual(first_entry.start_position, game_state.agents[0].position)
-        self.assertEqual(first_entry.start_hunger, 10)
-        self.assertEqual(first_entry.end_hunger, 9)
+        self.assertEqual(first_entry.start_hunger, INITIAL_HUNGER)
+        self.assertEqual(
+            first_entry.end_hunger,
+            INITIAL_HUNGER - HUNGER_LOSS_PER_TURN,
+        )
         self.assertEqual(first_entry.start_food, 0)
         self.assertIn("position=(", str(first_entry))
-        self.assertIn("hunger=10 -> 9", str(first_entry))
+        self.assertIn(
+            f"hunger={INITIAL_HUNGER} -> "
+            f"{INITIAL_HUNGER - HUNGER_LOSS_PER_TURN}",
+            str(first_entry),
+        )
         self.assertIn("food=", str(first_entry))
 
     def test_simulation_is_deterministic(self) -> None:
@@ -77,28 +101,50 @@ class GameStateTests(unittest.TestCase):
         second = GameState.create(self.config, agent_count=2)
 
         with redirect_stdout(StringIO()):
-            first_result = first.run(max_turns=3, log_directory=None)
-            second_result = second.run(max_turns=3, log_directory=None)
+            first_result = first.run(
+                max_turns=3,
+                log_directory=None,
+                action_selector=select_actions,
+            )
+            second_result = second.run(
+                max_turns=3,
+                log_directory=None,
+                action_selector=select_actions,
+            )
 
         self.assertEqual(first_result, second_result)
 
     def test_agents_die_when_hunger_reaches_zero(self) -> None:
         game_state = GameState.create(self.config, agent_count=1)
-        starving_agent = replace(game_state.agents[0], hunger=1)
+        starving_agent = replace(
+            game_state.agents[0],
+            hunger=MIN_HUNGER + HUNGER_LOSS_PER_TURN,
+        )
         game_state = replace(game_state, agents=(starving_agent,))
 
         with redirect_stdout(StringIO()):
-            final_state = game_state.run(max_turns=1, log_directory=None)
+            final_state = game_state.run(
+                max_turns=1,
+                log_directory=None,
+                action_selector=select_actions,
+            )
 
         self.assertEqual(final_state.agents, ())
 
     def test_simulation_ends_when_all_agents_die(self) -> None:
         game_state = GameState.create(self.config, agent_count=1)
-        starving_agent = replace(game_state.agents[0], hunger=1)
+        starving_agent = replace(
+            game_state.agents[0],
+            hunger=MIN_HUNGER + HUNGER_LOSS_PER_TURN,
+        )
         game_state = replace(game_state, agents=(starving_agent,))
 
         with redirect_stdout(StringIO()):
-            final_state = game_state.run(max_turns=10, log_directory=None)
+            final_state = game_state.run(
+                max_turns=10,
+                log_directory=None,
+                action_selector=select_actions,
+            )
 
         self.assertEqual(final_state.turn, 1)
         self.assertEqual(len(final_state.action_log), 1)
@@ -107,7 +153,11 @@ class GameStateTests(unittest.TestCase):
         game_state = GameState.create(self.config, agent_count=1)
 
         with redirect_stdout(StringIO()):
-            final_state = game_state.run(max_turns=3, log_directory=None)
+            final_state = game_state.run(
+                max_turns=3,
+                log_directory=None,
+                action_selector=select_actions,
+            )
 
         self.assertEqual(final_state.turn, 3)
         self.assertTrue(final_state.agents)
@@ -116,7 +166,11 @@ class GameStateTests(unittest.TestCase):
         game_state = GameState.create(self.config)
 
         with self.assertRaises(ValueError):
-            game_state.run(max_turns=-1, log_directory=None)
+            game_state.run(
+                max_turns=-1,
+                log_directory=None,
+                action_selector=select_actions,
+            )
 
 
 if __name__ == "__main__":

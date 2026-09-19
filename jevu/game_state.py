@@ -7,8 +7,9 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from random import Random
 
-from jevu.actions import ExploreAction, InteractAction, TurnActions, take_turn
-from jevu.agent import Agent
+from jevu.actions import TurnActions, take_turn
+from jevu.agent import Agent, AgentState
+from jevu.rules import HUNGER_LOSS_PER_TURN, MIN_HUNGER
 from jevu.simulation_log import write_simulation_log
 from jevu.world import Position, World, WorldConfig
 
@@ -91,21 +92,20 @@ class GameState:
             for agent in self.agents
         )
 
-    def _run_turn(self) -> GameState:
-        """Run one deterministic random turn for every living agent."""
+    def _run_turn(
+        self,
+        action_selector: Callable[[AgentState], TurnActions],
+    ) -> GameState:
+        """Run one selected turn for every living agent."""
 
         turn = self.turn + 1
-        random = Random(f"jevu:{self.world.config.seed}:turn:{turn}")
         occupied_positions = {agent.position for agent in self.agents}
         updated_agents: list[Agent] = []
         new_log_entries: list[ActionLogEntry] = []
 
         for agent in self.agents:
             occupied_positions.remove(agent.position)
-            actions = TurnActions(
-                interact=random.choice(tuple(InteractAction)),
-                explore=random.choice(tuple(ExploreAction)),
-            )
+            actions = action_selector(agent.state(self.world))
             updated_agent = take_turn(agent, self.world, actions)
 
             if updated_agent.position in occupied_positions:
@@ -113,7 +113,10 @@ class GameState:
 
             updated_agent = replace(
                 updated_agent,
-                hunger=max(0, updated_agent.hunger - 1),
+                hunger=max(
+                    MIN_HUNGER,
+                    updated_agent.hunger - HUNGER_LOSS_PER_TURN,
+                ),
             )
             new_log_entries.append(
                 ActionLogEntry(
@@ -129,7 +132,7 @@ class GameState:
                 )
             )
 
-            if updated_agent.hunger > 0:
+            if updated_agent.hunger > MIN_HUNGER:
                 updated_agents.append(updated_agent)
                 occupied_positions.add(updated_agent.position)
 
@@ -145,6 +148,8 @@ class GameState:
         max_turns: int = 0,
         log_directory: str | Path | None = "logs",
         state_callback: Callable[[GameState], bool] | None = None,
+        *,
+        action_selector: Callable[[AgentState], TurnActions],
     ) -> GameState:
         """Run a simulation and return its final state."""
 
@@ -157,7 +162,7 @@ class GameState:
         for _ in range(max_turns if should_continue else 0):
             if not game_state.agents:
                 break
-            game_state = game_state._run_turn()
+            game_state = game_state._run_turn(action_selector)
             if state_callback is not None and not state_callback(game_state):
                 break
 

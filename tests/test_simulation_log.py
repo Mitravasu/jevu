@@ -5,8 +5,17 @@ from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from jevu.actions import ExploreAction, InteractAction, TurnActions
+from jevu.agent import AgentState
 from jevu.game_state import GameState
 from jevu.world import WorldConfig
+
+
+def select_actions(_: AgentState) -> TurnActions:
+    return TurnActions(
+        interact=InteractAction.HARVEST,
+        explore=ExploreAction.UP,
+    )
 
 
 class SimulationLogTests(unittest.TestCase):
@@ -23,7 +32,11 @@ class SimulationLogTests(unittest.TestCase):
 
         with TemporaryDirectory() as temporary_directory:
             with redirect_stdout(StringIO()):
-                game_state.run(max_turns=2, log_directory=temporary_directory)
+                game_state.run(
+                    max_turns=2,
+                    log_directory=temporary_directory,
+                    action_selector=select_actions,
+                )
 
             log_files = list(Path(temporary_directory).glob("*.jsonl"))
             self.assertEqual(len(log_files), 1)

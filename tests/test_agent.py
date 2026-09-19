@@ -1,6 +1,7 @@
 import unittest
 
 from jevu.agent import Agent
+from jevu.rules import INITIAL_HUNGER
 from jevu.world import Position, World, WorldConfig
 
 
@@ -19,7 +20,7 @@ class AgentTests(unittest.TestCase):
             state.adjacent_tiles,
             self.world.adjacent_tiles(Position(2, 2)),
         )
-        self.assertEqual(state.hunger, 10)
+        self.assertEqual(state.hunger, INITIAL_HUNGER)
         self.assertEqual(state.inventory.food, 0)
 
     def test_rendering_displays_agent_id(self) -> None:

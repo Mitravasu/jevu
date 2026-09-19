@@ -1,0 +1,12 @@
+"""Configurable gameplay values shared by simulation and decision code."""
+
+MIN_HUNGER = 0
+MAX_HUNGER = 10
+INITIAL_HUNGER = MAX_HUNGER
+HUNGER_LOSS_PER_TURN = 1
+
+FOOD_HARVEST_AMOUNT = 1
+FOOD_EAT_COST = 1
+FOOD_HUNGER_RESTORE = 2
+MIN_FOOD = 0
+INITIAL_FOOD = MIN_FOOD

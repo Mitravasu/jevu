@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from jevu.inventory import InventoryState
+from jevu.rules import INITIAL_HUNGER, MAX_HUNGER, MIN_HUNGER
 from jevu.world import Position, TileType, World
 
 
@@ -26,14 +27,16 @@ class Agent:
 
     number: int
     position: Position
-    hunger: int = 10
+    hunger: int = INITIAL_HUNGER
     inventory: InventoryState = field(default_factory=InventoryState)
 
     def __post_init__(self) -> None:
         if self.number <= 0:
             raise ValueError("Agent number must be positive")
-        if not 0 <= self.hunger <= 10:
-            raise ValueError("Agent hunger must be between 0 and 10")
+        if not MIN_HUNGER <= self.hunger <= MAX_HUNGER:
+            raise ValueError(
+                f"Agent hunger must be between {MIN_HUNGER} and {MAX_HUNGER}"
+            )
 
     @property
     def id(self) -> str:

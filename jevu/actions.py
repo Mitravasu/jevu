@@ -6,9 +6,13 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 
 from jevu.agent import Agent
+from jevu.rules import (
+    FOOD_EAT_COST,
+    FOOD_HARVEST_AMOUNT,
+    FOOD_HUNGER_RESTORE,
+    MAX_HUNGER,
+)
 from jevu.world import Position, TileType, World
-
-FOOD_FULLNESS_RESTORE = 2
 
 
 class ExploreAction(StrEnum):
@@ -59,15 +63,18 @@ def interact(agent: Agent, world: World, action: InteractAction) -> Agent:
 
     if action is InteractAction.HARVEST:
         if world.tile_at(agent.position) is TileType.FRUIT_TREE:
-            return replace(agent, inventory=agent.inventory.add_food())
+            return replace(
+                agent,
+                inventory=agent.inventory.add_food(FOOD_HARVEST_AMOUNT),
+            )
         return agent
 
-    if agent.inventory.food == 0 or agent.hunger == 10:
+    if agent.inventory.food < FOOD_EAT_COST or agent.hunger == MAX_HUNGER:
         return agent
     return replace(
         agent,
-        inventory=agent.inventory.consume_food(),
-        hunger=min(10, agent.hunger + FOOD_FULLNESS_RESTORE),
+        inventory=agent.inventory.consume_food(FOOD_EAT_COST),
+        hunger=min(MAX_HUNGER, agent.hunger + FOOD_HUNGER_RESTORE),
     )
 
 

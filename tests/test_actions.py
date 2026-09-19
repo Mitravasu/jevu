@@ -10,6 +10,12 @@ from jevu.actions import (
 )
 from jevu.agent import Agent
 from jevu.inventory import InventoryState
+from jevu.rules import (
+    FOOD_EAT_COST,
+    FOOD_HARVEST_AMOUNT,
+    FOOD_HUNGER_RESTORE,
+    MAX_HUNGER,
+)
 from jevu.world import Position, TileType, World, WorldConfig
 
 
@@ -66,42 +72,46 @@ class ActionTests(unittest.TestCase):
         )
         self.assertEqual(
             interact(tree_agent, self.world, InteractAction.HARVEST).inventory.food,
-            1,
+            FOOD_HARVEST_AMOUNT,
         )
 
-    def test_eat_consumes_food_and_restores_two_hunger(self) -> None:
+    def test_eat_consumes_food_and_restores_configured_hunger(self) -> None:
         agent = Agent(
             number=1,
             position=Position(0, 0),
-            hunger=8,
-            inventory=InventoryState(food=2),
+            hunger=MAX_HUNGER - FOOD_HUNGER_RESTORE,
+            inventory=InventoryState(food=FOOD_EAT_COST * 2),
         )
 
         updated = interact(agent, self.world, InteractAction.EAT)
 
-        self.assertEqual(updated.hunger, 10)
-        self.assertEqual(updated.inventory.food, 1)
+        self.assertEqual(updated.hunger, MAX_HUNGER)
+        self.assertEqual(updated.inventory.food, FOOD_EAT_COST)
 
-    def test_eat_caps_hunger_at_ten(self) -> None:
+    def test_eat_caps_hunger_at_configured_maximum(self) -> None:
         agent = Agent(
             number=1,
             position=Position(0, 0),
-            hunger=9,
-            inventory=InventoryState(food=1),
+            hunger=MAX_HUNGER - 1,
+            inventory=InventoryState(food=FOOD_EAT_COST),
         )
 
         updated = interact(agent, self.world, InteractAction.EAT)
 
-        self.assertEqual(updated.hunger, 10)
+        self.assertEqual(updated.hunger, MAX_HUNGER)
         self.assertEqual(updated.inventory.food, 0)
 
     def test_eat_does_nothing_without_need_or_fruit(self) -> None:
-        hungry_agent = Agent(number=1, position=Position(0, 0), hunger=8)
+        hungry_agent = Agent(
+            number=1,
+            position=Position(0, 0),
+            hunger=MAX_HUNGER - FOOD_HUNGER_RESTORE,
+        )
         full_agent = Agent(
             number=1,
             position=Position(0, 0),
-            hunger=10,
-            inventory=InventoryState(food=1),
+            hunger=MAX_HUNGER,
+            inventory=InventoryState(food=FOOD_EAT_COST),
         )
 
         self.assertEqual(
@@ -123,7 +133,7 @@ class ActionTests(unittest.TestCase):
         updated = take_turn(agent, self.world, actions)
 
         self.assertEqual(updated.position, Position(0, 0))
-        self.assertEqual(updated.inventory.food, 1)
+        self.assertEqual(updated.inventory.food, FOOD_HARVEST_AMOUNT)
 
 
 if __name__ == "__main__":

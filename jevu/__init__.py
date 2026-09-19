@@ -4,6 +4,7 @@ from jevu.world import Position, TileType, World, WorldConfig
 from jevu.inventory import InventoryState
 from jevu.agent import Agent, AgentState
 from jevu.game_state import ActionLogEntry, GameState
+from jevu.jev import JevActionSelector
 from jevu.actions import (
     Action,
     ExploreAction,
@@ -23,6 +24,7 @@ __all__ = [
     "GameState",
     "InteractAction",
     "InventoryState",
+    "JevActionSelector",
     "Position",
     "TileType",
     "TurnActions",

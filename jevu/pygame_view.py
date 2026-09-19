@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pygame
 
+from jevu.actions import TurnActions
+from jevu.agent import AgentState
 from jevu.game_state import GameState
 from jevu.world import TileType
 
@@ -165,6 +168,7 @@ class PygameView:
 def run_pygame(
     game_state: GameState,
     max_turns: int,
+    action_selector: Callable[[AgentState], TurnActions],
     turns_per_second: float = 2.0,
     log_directory: str | Path | None = "logs",
     hold_open: bool = True,
@@ -177,6 +181,7 @@ def run_pygame(
             max_turns=max_turns,
             log_directory=log_directory,
             state_callback=view.draw,
+            action_selector=action_selector,
         )
         if view.is_open:
             view.draw_end_screen(game_state, final_state)
