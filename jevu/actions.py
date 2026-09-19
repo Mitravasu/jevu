@@ -8,6 +8,8 @@ from enum import StrEnum
 from jevu.agent import Agent
 from jevu.world import Position, TileType, World
 
+FOOD_FULLNESS_RESTORE = 2
+
 
 class ExploreAction(StrEnum):
     """Movement actions available during the explore part of a turn."""
@@ -32,8 +34,8 @@ type Action = ExploreAction | InteractAction
 class TurnActions:
     """The explore and interact actions selected for one turn."""
 
-    explore: ExploreAction
     interact: InteractAction
+    explore: ExploreAction
 
 
 def explore(agent: Agent, world: World, action: ExploreAction) -> Agent:
@@ -57,15 +59,15 @@ def interact(agent: Agent, world: World, action: InteractAction) -> Agent:
 
     if action is InteractAction.HARVEST:
         if world.tile_at(agent.position) is TileType.FRUIT_TREE:
-            return replace(agent, carried_fruit=agent.carried_fruit + 1)
+            return replace(agent, inventory=agent.inventory.add_food())
         return agent
 
-    if agent.carried_fruit == 0 or agent.hunger == 10:
+    if agent.inventory.food == 0 or agent.hunger == 10:
         return agent
     return replace(
         agent,
-        carried_fruit=agent.carried_fruit - 1,
-        hunger=agent.hunger + 1,
+        inventory=agent.inventory.consume_food(),
+        hunger=min(10, agent.hunger + FOOD_FULLNESS_RESTORE),
     )
 
 

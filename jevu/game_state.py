@@ -2,11 +2,38 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from random import Random
 
+from jevu.actions import ExploreAction, InteractAction, TurnActions, take_turn
 from jevu.agent import Agent
 from jevu.world import Position, World, WorldConfig
+
+
+@dataclass(frozen=True, slots=True)
+class ActionLogEntry:
+    """Actions selected by one agent during one turn."""
+
+    turn: int
+    agent_id: str
+    actions: TurnActions
+    start_position: Position
+    end_position: Position
+    start_hunger: int
+    end_hunger: int
+    start_food: int
+    end_food: int
+
+    def __str__(self) -> str:
+        return (
+            f"Turn {self.turn} - {self.agent_id}: "
+            f"position=({self.start_position.x}, {self.start_position.y}) -> "
+            f"({self.end_position.x}, {self.end_position.y}), "
+            f"hunger={self.start_hunger} -> {self.end_hunger}, "
+            f"food={self.start_food} -> {self.end_food}, "
+            f"interact={self.actions.interact.value}, "
+            f"explore={self.actions.explore.value}"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,6 +42,8 @@ class GameState:
 
     world: World
     agents: tuple[Agent, ...]
+    turn: int = 0
+    action_log: tuple[ActionLogEntry, ...] = ()
 
     @classmethod
     def create(cls, world_config: WorldConfig, agent_count: int = 1) -> GameState:
@@ -48,7 +77,86 @@ class GameState:
 
         return self.world.render_ascii(self.agents)
 
-    def run(self) -> None:
-        """Run the game from its current state."""
+    def render_agent_states(self) -> str:
+        """Render the position, hunger, and inventory of every living agent."""
 
+        if not self.agents:
+            return "(none)"
+        return "\n".join(
+            f"{agent.id}: (x={agent.position.x}, y={agent.position.y}), "
+            f"hunger={agent.hunger}, food={agent.inventory.food}"
+            for agent in self.agents
+        )
+
+    def _run_turn(self) -> GameState:
+        """Run one deterministic random turn for every living agent."""
+
+        turn = self.turn + 1
+        random = Random(f"jevu:{self.world.config.seed}:turn:{turn}")
+        occupied_positions = {agent.position for agent in self.agents}
+        updated_agents: list[Agent] = []
+        new_log_entries: list[ActionLogEntry] = []
+
+        for agent in self.agents:
+            occupied_positions.remove(agent.position)
+            actions = TurnActions(
+                interact=random.choice(tuple(InteractAction)),
+                explore=random.choice(tuple(ExploreAction)),
+            )
+            updated_agent = take_turn(agent, self.world, actions)
+
+            if updated_agent.position in occupied_positions:
+                updated_agent = replace(updated_agent, position=agent.position)
+
+            updated_agent = replace(
+                updated_agent,
+                hunger=max(0, updated_agent.hunger - 1),
+            )
+            new_log_entries.append(
+                ActionLogEntry(
+                    turn=turn,
+                    agent_id=agent.id,
+                    actions=actions,
+                    start_position=agent.position,
+                    end_position=updated_agent.position,
+                    start_hunger=agent.hunger,
+                    end_hunger=updated_agent.hunger,
+                    start_food=agent.inventory.food,
+                    end_food=updated_agent.inventory.food,
+                )
+            )
+
+            if updated_agent.hunger > 0:
+                updated_agents.append(updated_agent)
+                occupied_positions.add(updated_agent.position)
+
+        return replace(
+            self,
+            agents=tuple(updated_agents),
+            turn=turn,
+            action_log=self.action_log + tuple(new_log_entries),
+        )
+
+    def run(self, max_turns: int = 0) -> GameState:
+        """Run a simulation and return its final state."""
+
+        if max_turns < 0:
+            raise ValueError("Maximum turns cannot be negative")
+
+        game_state = self
+        initial_log_length = len(self.action_log)
+        for _ in range(max_turns):
+            game_state = game_state._run_turn()
+
+        for entry in game_state.action_log[initial_log_length:]:
+            print(entry)
+
+        print("\nStart state:")
         print(self.render_ascii())
+        print("Agent states:")
+        print(self.render_agent_states())
+        print("\nFinal state:")
+        print(game_state.render_ascii())
+        print("Agent states:")
+        print(game_state.render_agent_states())
+        return game_state

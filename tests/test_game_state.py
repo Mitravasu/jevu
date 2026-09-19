@@ -1,5 +1,6 @@
 import unittest
 from contextlib import redirect_stdout
+from dataclasses import replace
 from io import StringIO
 
 from jevu.game_state import GameState
@@ -41,7 +42,61 @@ class GameStateTests(unittest.TestCase):
         with redirect_stdout(output):
             game_state.run()
 
-        self.assertEqual(output.getvalue().strip(), game_state.render_ascii())
+        rendered_output = output.getvalue()
+        self.assertIn("Start state:\n" + game_state.render_ascii(), rendered_output)
+        self.assertIn("Final state:\n" + game_state.render_ascii(), rendered_output)
+        self.assertEqual(rendered_output.count("Agent states:"), 2)
+        self.assertIn(game_state.render_agent_states(), rendered_output)
+
+    def test_run_simulates_requested_number_of_turns(self) -> None:
+        blank_config = WorldConfig(
+            width=5,
+            height=4,
+            fruit_tree_density=0.0,
+            seed=42,
+        )
+        game_state = GameState.create(blank_config, agent_count=2)
+
+        with redirect_stdout(StringIO()):
+            final_state = game_state.run(max_turns=3)
+
+        self.assertEqual(final_state.turn, 3)
+        self.assertEqual(len(final_state.action_log), 6)
+        self.assertTrue(all(agent.hunger == 7 for agent in final_state.agents))
+        first_entry = final_state.action_log[0]
+        self.assertEqual(first_entry.start_position, game_state.agents[0].position)
+        self.assertEqual(first_entry.start_hunger, 10)
+        self.assertEqual(first_entry.end_hunger, 9)
+        self.assertEqual(first_entry.start_food, 0)
+        self.assertIn("position=(", str(first_entry))
+        self.assertIn("hunger=10 -> 9", str(first_entry))
+        self.assertIn("food=", str(first_entry))
+
+    def test_simulation_is_deterministic(self) -> None:
+        first = GameState.create(self.config, agent_count=2)
+        second = GameState.create(self.config, agent_count=2)
+
+        with redirect_stdout(StringIO()):
+            first_result = first.run(max_turns=3)
+            second_result = second.run(max_turns=3)
+
+        self.assertEqual(first_result, second_result)
+
+    def test_agents_die_when_hunger_reaches_zero(self) -> None:
+        game_state = GameState.create(self.config, agent_count=1)
+        starving_agent = replace(game_state.agents[0], hunger=1)
+        game_state = replace(game_state, agents=(starving_agent,))
+
+        with redirect_stdout(StringIO()):
+            final_state = game_state.run(max_turns=1)
+
+        self.assertEqual(final_state.agents, ())
+
+    def test_negative_max_turns_are_rejected(self) -> None:
+        game_state = GameState.create(self.config)
+
+        with self.assertRaises(ValueError):
+            game_state.run(max_turns=-1)
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ from jevu.actions import (
     take_turn,
 )
 from jevu.agent import Agent
+from jevu.inventory import InventoryState
 from jevu.world import Position, TileType, World, WorldConfig
 
 
@@ -35,36 +36,64 @@ class ActionTests(unittest.TestCase):
         )
 
     def test_explore_stays_in_place_at_boundary(self) -> None:
-        agent = Agent(number=1, position=Position(0, 0))
+        top_left_agent = Agent(number=1, position=Position(0, 0))
+        bottom_right_agent = Agent(number=2, position=Position(1, 1))
 
-        self.assertEqual(explore(agent, self.world, ExploreAction.UP), agent)
-        self.assertEqual(explore(agent, self.world, ExploreAction.LEFT), agent)
+        self.assertEqual(
+            explore(top_left_agent, self.world, ExploreAction.UP),
+            top_left_agent,
+        )
+        self.assertEqual(
+            explore(top_left_agent, self.world, ExploreAction.LEFT),
+            top_left_agent,
+        )
+        self.assertEqual(
+            explore(bottom_right_agent, self.world, ExploreAction.DOWN),
+            bottom_right_agent,
+        )
+        self.assertEqual(
+            explore(bottom_right_agent, self.world, ExploreAction.RIGHT),
+            bottom_right_agent,
+        )
 
     def test_harvest_collects_fruit_only_on_tree(self) -> None:
         blank_agent = Agent(number=1, position=Position(0, 0))
         tree_agent = Agent(number=1, position=Position(1, 0))
 
         self.assertEqual(
-            interact(blank_agent, self.world, InteractAction.HARVEST).carried_fruit,
+            interact(blank_agent, self.world, InteractAction.HARVEST).inventory.food,
             0,
         )
         self.assertEqual(
-            interact(tree_agent, self.world, InteractAction.HARVEST).carried_fruit,
+            interact(tree_agent, self.world, InteractAction.HARVEST).inventory.food,
             1,
         )
 
-    def test_eat_consumes_fruit_and_restores_one_hunger(self) -> None:
+    def test_eat_consumes_food_and_restores_two_hunger(self) -> None:
         agent = Agent(
             number=1,
             position=Position(0, 0),
             hunger=8,
-            carried_fruit=2,
+            inventory=InventoryState(food=2),
         )
 
         updated = interact(agent, self.world, InteractAction.EAT)
 
-        self.assertEqual(updated.hunger, 9)
-        self.assertEqual(updated.carried_fruit, 1)
+        self.assertEqual(updated.hunger, 10)
+        self.assertEqual(updated.inventory.food, 1)
+
+    def test_eat_caps_hunger_at_ten(self) -> None:
+        agent = Agent(
+            number=1,
+            position=Position(0, 0),
+            hunger=9,
+            inventory=InventoryState(food=1),
+        )
+
+        updated = interact(agent, self.world, InteractAction.EAT)
+
+        self.assertEqual(updated.hunger, 10)
+        self.assertEqual(updated.inventory.food, 0)
 
     def test_eat_does_nothing_without_need_or_fruit(self) -> None:
         hungry_agent = Agent(number=1, position=Position(0, 0), hunger=8)
@@ -72,7 +101,7 @@ class ActionTests(unittest.TestCase):
             number=1,
             position=Position(0, 0),
             hunger=10,
-            carried_fruit=1,
+            inventory=InventoryState(food=1),
         )
 
         self.assertEqual(
@@ -94,7 +123,7 @@ class ActionTests(unittest.TestCase):
         updated = take_turn(agent, self.world, actions)
 
         self.assertEqual(updated.position, Position(0, 0))
-        self.assertEqual(updated.carried_fruit, 1)
+        self.assertEqual(updated.inventory.food, 1)
 
 
 if __name__ == "__main__":

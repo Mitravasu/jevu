@@ -1,8 +1,9 @@
 """Core simulation package for JevU."""
 
 from jevu.world import Position, TileType, World, WorldConfig
+from jevu.inventory import InventoryState
 from jevu.agent import Agent, AgentState
-from jevu.game_state import GameState
+from jevu.game_state import ActionLogEntry, GameState
 from jevu.actions import (
     Action,
     ExploreAction,
@@ -17,9 +18,11 @@ __all__ = [
     "Agent",
     "AgentState",
     "Action",
+    "ActionLogEntry",
     "ExploreAction",
     "GameState",
     "InteractAction",
+    "InventoryState",
     "Position",
     "TileType",
     "TurnActions",

@@ -11,7 +11,7 @@ setup: ## Create the virtual environment and install dependencies
 lock: ## Update the uv lockfile
 	uv lock
 
-run: ## Run a game (ARGS="--width N --height N --tree-density F --seed N --agents N")
+run: ## Run a game (ARGS="--width N --height N --tree-density F --seed N --agents N --max-turns N")
 	uv run python main.py $(ARGS)
 
 test: ## Run the test suite

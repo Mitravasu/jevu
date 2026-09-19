@@ -11,6 +11,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tree-density", type=float, default=0.15)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--agents", type=int, default=1)
+    parser.add_argument("--max-turns", type=int, default=10)
     return parser.parse_args()
 
 
@@ -25,7 +26,7 @@ def main() -> None:
         ),
         agent_count=args.agents,
     )
-    game_state.run()
+    game_state.run(max_turns=args.max_turns)
 
 
 if __name__ == "__main__":

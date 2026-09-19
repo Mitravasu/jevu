@@ -20,7 +20,7 @@ class AgentTests(unittest.TestCase):
             self.world.adjacent_tiles(Position(2, 2)),
         )
         self.assertEqual(state.hunger, 10)
-        self.assertEqual(state.carried_fruit, 0)
+        self.assertEqual(state.inventory.food, 0)
 
     def test_rendering_displays_agent_id(self) -> None:
         agent = Agent(number=1, position=Position(0, 0))

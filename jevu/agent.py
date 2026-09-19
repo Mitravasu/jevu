@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from jevu.inventory import InventoryState
 from jevu.world import Position, TileType, World
 
 
@@ -16,7 +17,7 @@ class AgentState:
     current_tile: TileType
     adjacent_tiles: dict[str, TileType]
     hunger: int
-    carried_fruit: int
+    inventory: InventoryState
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,15 +27,13 @@ class Agent:
     number: int
     position: Position
     hunger: int = 10
-    carried_fruit: int = 0
+    inventory: InventoryState = field(default_factory=InventoryState)
 
     def __post_init__(self) -> None:
         if self.number <= 0:
             raise ValueError("Agent number must be positive")
         if not 0 <= self.hunger <= 10:
             raise ValueError("Agent hunger must be between 0 and 10")
-        if self.carried_fruit < 0:
-            raise ValueError("Carried fruit cannot be negative")
 
     @property
     def id(self) -> str:
@@ -49,5 +48,5 @@ class Agent:
             current_tile=world.tile_at(self.position),
             adjacent_tiles=world.adjacent_tiles(self.position),
             hunger=self.hunger,
-            carried_fruit=self.carried_fruit,
+            inventory=self.inventory,
         )
