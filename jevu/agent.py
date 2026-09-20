@@ -10,6 +10,8 @@ from jevu.personalities import Personality
 from jevu.rules import INITIAL_HUNGER, MAX_HUNGER, MIN_HUNGER
 from jevu.world import Position, TileType, World
 
+RECENT_POSITION_WINDOW = 10
+
 
 @dataclass(frozen=True, slots=True)
 class TileObservation:
@@ -45,6 +47,7 @@ class AgentState:
     adjacent_tile_claims: dict[str, str | None]
     adjacent_agents: dict[str, str | None]
     claimed_territory: tuple[ClaimedTileObservation, ...]
+    recent_positions: tuple[Position, ...]
     hunger: int
     inventory: InventoryState
     personality: Personality
@@ -59,6 +62,7 @@ class Agent:
     hunger: int = INITIAL_HUNGER
     inventory: InventoryState = field(default_factory=InventoryState)
     personality: Personality = Personality.ADAPTIVE_SURVIVOR
+    recent_positions: tuple[Position, ...] = ()
 
     def __post_init__(self) -> None:
         if self.number <= 0:
@@ -66,6 +70,11 @@ class Agent:
         if not MIN_HUNGER <= self.hunger <= MAX_HUNGER:
             raise ValueError(
                 f"Agent hunger must be between {MIN_HUNGER} and {MAX_HUNGER}"
+            )
+        if len(self.recent_positions) > RECENT_POSITION_WINDOW:
+            raise ValueError(
+                "Agent position history cannot exceed "
+                f"{RECENT_POSITION_WINDOW} entries"
             )
 
     @property
@@ -143,6 +152,7 @@ class Agent:
                 for direction, position in adjacent_positions.items()
             },
             claimed_territory=claimed_territory,
+            recent_positions=self.recent_positions or (self.position,),
             hunger=self.hunger,
             inventory=self.inventory,
             personality=self.personality,

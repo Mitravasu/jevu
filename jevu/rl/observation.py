@@ -7,11 +7,11 @@ from dataclasses import dataclass
 import numpy as np
 from gymnasium import spaces
 
-from jevu.agent import AgentState
+from jevu.agent import RECENT_POSITION_WINDOW, AgentState
 from jevu.rules import FOOD_HARVEST_AMOUNT, FRUIT_TREE_COOLDOWN, MAX_HUNGER
-from jevu.world import TileType
+from jevu.world import Position, TileType
 
-OBSERVATION_SCHEMA_VERSION = 2
+OBSERVATION_SCHEMA_VERSION = 3
 WINDOW_SIZE = 3
 WINDOW_CENTER = 1
 CHANNEL_NAMES = (
@@ -23,6 +23,8 @@ CHANNEL_NAMES = (
     "claimed_by_other",
     "other_agent",
     "current_position",
+    "recent_visit_count",
+    "unclaimed_frontier",
 )
 _OFFSETS = {
     "up": (0, -1),
@@ -67,6 +69,7 @@ class ObservationSpec:
             "window_size": WINDOW_SIZE,
             "max_turns": self.max_turns,
             "max_food": self.max_food,
+            "recent_position_window": RECENT_POSITION_WINDOW,
             "channels": list(CHANNEL_NAMES),
             "scalars": ["hunger", "food"],
         }
@@ -82,10 +85,25 @@ def encode_observation(
         (len(CHANNEL_NAMES), WINDOW_SIZE, WINDOW_SIZE),
         dtype=np.float32,
     )
+    owned_positions = {
+        claimed.tile.position for claimed in state.claimed_territory
+    }
+    recent_visit_counts = {
+        position: state.recent_positions.count(position)
+        for position in set(state.recent_positions)
+    }
+
+    def is_unclaimed_frontier(position: Position) -> bool:
+        # Kept as a local feature: only visible candidate tiles are encoded.
+        return any(
+            Position(position.x + dx, position.y + dy) in owned_positions
+            for dx, dy in _OFFSETS.values()
+        )
 
     def add_visible(
         row: int,
         column: int,
+        position: Position,
         tile: TileType,
         cooldown: int,
         claim: str | None,
@@ -99,10 +117,18 @@ def encode_observation(
         grid[4, row, column] = float(claim == state.id)
         grid[5, row, column] = float(claim is not None and claim != state.id)
         grid[6, row, column] = float(other_agent is not None)
+        grid[8, row, column] = min(
+            1.0,
+            recent_visit_counts.get(position, 0) / RECENT_POSITION_WINDOW,
+        )
+        grid[9, row, column] = float(
+            claim is None and is_unclaimed_frontier(position)
+        )
 
     add_visible(
         WINDOW_CENTER,
         WINDOW_CENTER,
+        state.position,
         state.current_tile,
         state.current_tile_cooldown,
         state.current_tile_claim,
@@ -119,6 +145,10 @@ def encode_observation(
         add_visible(
             row,
             column,
+            Position(
+                state.position.x + dx,
+                state.position.y + dy,
+            ),
             state.adjacent_tiles[direction],
             state.adjacent_tile_cooldowns[direction],
             state.adjacent_tile_claims[direction],

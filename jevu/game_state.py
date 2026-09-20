@@ -8,7 +8,7 @@ from pathlib import Path
 from random import Random
 
 from jevu.actions import InteractAction, TurnActions, claim_tile, take_turn
-from jevu.agent import Agent, AgentState
+from jevu.agent import RECENT_POSITION_WINDOW, Agent, AgentState
 from jevu.decision import ActionSelection, TurnDecision
 from jevu.personalities import personality_for_agent
 from jevu.rules import (
@@ -168,8 +168,13 @@ class TurnSession:
         if updated_agent.position in self._occupied_positions:
             updated_agent = replace(updated_agent, position=agent.position)
 
+        position_history = agent.recent_positions or (agent.position,)
         updated_agent = replace(
             updated_agent,
+            recent_positions=(
+                *position_history,
+                updated_agent.position,
+            )[-RECENT_POSITION_WINDOW:],
             hunger=max(
                 MIN_HUNGER,
                 updated_agent.hunger - HUNGER_LOSS_PER_TURN,

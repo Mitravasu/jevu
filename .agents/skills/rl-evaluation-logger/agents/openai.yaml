@@ -1,0 +1,4 @@
+interface:
+  display_name: "RL Evaluation Logger"
+  short_description: "Record RL evaluation iterations and results"
+  default_prompt: "Use $rl-evaluation-logger to record this evaluation as a new experiment iteration and update the summary."

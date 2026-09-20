@@ -137,6 +137,29 @@ class GameStateTests(unittest.TestCase):
 
         self.assertEqual(stepped, run)
 
+    def test_tracks_the_last_ten_resolved_positions(self) -> None:
+        world = World.generate(
+            WorldConfig(width=3, height=1, fruit_tree_density=0.0)
+        )
+        game_state = GameState(
+            world=world,
+            agents=(Agent(number=1, position=Position(1, 0)),),
+        )
+
+        def move_right(_: AgentState) -> TurnActions:
+            return TurnActions(
+                interact=InteractAction.NONE,
+                explore=ExploreAction.RIGHT,
+            )
+
+        for _ in range(9):
+            game_state = game_state.step(move_right)
+
+        agent = game_state.agents[0]
+        self.assertEqual(len(agent.recent_positions), 10)
+        self.assertEqual(agent.recent_positions[0], Position(1, 0))
+        self.assertEqual(agent.recent_positions[1:], (Position(2, 0),) * 9)
+
     def test_incremental_turn_session_matches_normal_multi_agent_step(self) -> None:
         game_state = GameState.create(self.config, agent_count=3)
         session = game_state.start_turn()

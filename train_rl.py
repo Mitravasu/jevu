@@ -12,6 +12,21 @@ from jevu.rl.trainer import train
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", required=True, help="Path to training TOML")
+    initialization = parser.add_mutually_exclusive_group()
+    initialization.add_argument(
+        "--resume",
+        help=(
+            "Completed current-schema bundle directory or checkpoint .zip to continue; "
+            "configured total_timesteps are added to the loaded model"
+        ),
+    )
+    initialization.add_argument(
+        "--warm-start",
+        help=(
+            "Completed schema-v2 bundle whose policy weights initialize a new "
+            "schema-v3 model with a fresh optimizer"
+        ),
+    )
     parser.add_argument(
         "--smoke",
         action="store_true",
@@ -36,7 +51,11 @@ def main() -> None:
         print(f"Resolved training configuration: {config.to_dict()}")
     elif config.run.console_output == "progress":
         print(f"Training {config.run.name}: {config.run.total_timesteps:,} timesteps")
-    run_directory = train(config)
+    run_directory = train(
+        config,
+        resume_from=args.resume,
+        warm_start_from=args.warm_start,
+    )
     print(f"Saved RL model bundle: {run_directory}")
 
 

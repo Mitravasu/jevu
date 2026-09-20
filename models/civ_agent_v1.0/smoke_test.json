@@ -1,0 +1,13 @@
+{
+  "claimed_tiles": 846,
+  "claims_by_survivor": {
+    "A3": 127,
+    "A4": 122,
+    "A6": 127,
+    "A7": 126
+  },
+  "passed": true,
+  "survivors": 4,
+  "turns": 250,
+  "world_seed": 7
+}

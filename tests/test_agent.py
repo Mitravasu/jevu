@@ -18,6 +18,7 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(state.world_width, 5)
         self.assertEqual(state.world_height, 4)
         self.assertEqual(state.position, Position(2, 2))
+        self.assertEqual(state.recent_positions, (Position(2, 2),))
         self.assertEqual(state.current_tile, self.world.tile_at(Position(2, 2)))
         self.assertEqual(state.current_tile_cooldown, 0)
         self.assertEqual(
@@ -27,6 +28,14 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(state.hunger, INITIAL_HUNGER)
         self.assertEqual(state.inventory.food, 0)
         self.assertEqual(state.personality, Personality.ADAPTIVE_SURVIVOR)
+
+    def test_rejects_position_history_longer_than_ten(self) -> None:
+        with self.assertRaisesRegex(ValueError, "cannot exceed 10"):
+            Agent(
+                number=1,
+                position=Position(2, 2),
+                recent_positions=(Position(2, 2),) * 11,
+            )
 
     def test_state_contains_observable_tree_cooldowns(self) -> None:
         agent = Agent(number=1, position=Position(2, 2))

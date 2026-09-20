@@ -85,9 +85,12 @@ placeholder transitions. At a rollout boundary, the one unmatched tail transitio
 per living agent is treated as a boundary because its next personal observation has
 not been produced yet.
 
-The RL observation is a relative one-tile view. Adjacent-agent occupancy is visible,
-but moves into occupied tiles are deliberately not action-masked: the normal failed
-move and ineffective-action penalty teach the policy how to react to collisions.
+The schema-v3 RL observation is a relative one-tile view. Adjacent-agent occupancy is
+visible, and two local memory signals help the policy avoid short loops: how often each
+visible tile occurred in the agent's last ten resolved positions, and whether a visible
+unclaimed tile borders the agent's territory. Moves into occupied tiles are deliberately
+not action-masked: the normal failed move and ineffective-action penalty teach the
+policy how to react to collisions.
 
 Consequently, `total_timesteps = 20000` means 20,000 total agent decisions. With ten
 living agents that is approximately 2,000 shared-world turns, not 20,000 turns per
@@ -108,6 +111,55 @@ You can override it for one run without editing the file:
 make train-rl ARGS="--config configs/rl/survival_claim.toml --console-output quiet"
 ```
 
+### Continue training a saved model
+
+Resume a completed schema-v3 bundle without modifying the original:
+
+```sh
+make train-rl ARGS="--config configs/rl/survival_claim.toml --resume artifacts/rl/survival-claim-v1/SCHEMA_V3_RUN"
+```
+
+`run.total_timesteps` is additional training when `--resume` is present. For example,
+resuming a model with roughly 250,000 completed timesteps from a config containing
+`total_timesteps = 250000` produces a new child model with roughly 500,000 cumulative
+timesteps. PPO rounds up to a complete rollout, so the exact count can be slightly
+higher. The original bundle is never overwritten.
+
+The new bundle records its parent model, starting count, completed additional count,
+cumulative count, and continuation seed in `metadata.json`. Model weights and PPO's
+optimizer state are both restored. A different deterministic continuation seed is
+derived from the source path so resumed training does not replay the parent's initial
+world sequence.
+
+Changing `parallel_envs` or `n_steps` while resuming is supported, although it changes
+the number of decisions in each PPO update. Training prints a notice when that combined
+rollout size differs from the source bundle so the continuation is not mistaken for an
+identical uninterrupted run.
+
+Recovery checkpoints can also be resumed directly:
+
+```sh
+make train-rl ARGS="--config configs/rl/survival_claim.toml --resume artifacts/rl/survival-claim-v1/RUN/checkpoints/model-TIMESTEPS.zip"
+```
+
+Only schema-v3 egocentric models with compatible game rules, action mapping, and
+observation normalization can be continued. Earlier schemas require fresh training.
+
+### Warm-start schema v3 from schema v2
+
+Schema-v2 optimizer state cannot be resumed because schema v3 adds two observation
+channels. Its learned policy can still initialize a new schema-v3 run:
+
+```sh
+make train-rl ARGS="--config configs/rl/survival_claim.toml --warm-start artifacts/rl/survival-claim-v1/20260920T172531Z-seed-7"
+```
+
+Warm-start copies every compatible policy and value-network parameter. The original
+eight map channels and the hunger/food scalar weights retain their exact values; the
+18 inputs belonging to the two new 3-by-3 channels start at zero. The optimizer and
+timestep count start fresh, and bundle metadata records the schema-v2 source and its
+prior timestep history. `--resume` and `--warm-start` are mutually exclusive.
+
 ## Run a trained RL model
 
 The training command prints its model bundle directory when it finishes. Pass that
@@ -125,12 +177,13 @@ make run-rl ARGS="--bundle artifacts/rl/survival-claim-v1/RUN_DIRECTORY --max-tu
 ```
 
 The policy observes a fixed 3 by 3 agent-centered view: its current tile, the four
-orthogonally adjacent tiles, visible boundaries, and any adjacent agents. It does not
-receive absolute coordinates or the full map, so the same bundle can run on any world
-size supported by the simulator. Bundle loading checks the game rules, action mapping,
-and observation schema, and old global-map bundles fail clearly as incompatible. RL
-inference uses the same automatic MPS/CUDA/CPU selection as training; pass `--device
-cpu` if you want to override it.
+orthogonally adjacent tiles, visible boundaries, adjacent agents, local frontier tiles,
+and recent-visit counts from its last ten resolved positions. It does not receive
+absolute coordinates or the full map, so the same bundle can run on any world size
+supported by the simulator. Bundle loading checks the game rules, action mapping, and
+observation schema, and earlier bundles fail clearly as incompatible. RL inference uses
+the same automatic MPS/CUDA/CPU selection as training; pass `--device cpu` if you want
+to override it.
 
 For a manual comparison, run Jev and RL with the same world parameters:
 
@@ -145,19 +198,19 @@ treated as a reliable performance result.
 ## Evaluate a trained RL model
 
 Run a deterministic benchmark over five fixed seeds and supported square world
-sizes from 5 through 25:
+sizes from 5 through 50:
 
 ```sh
 make eval-rl ARGS="--bundle artifacts/rl/survival-claim-v1/RUN_DIRECTORY"
 ```
 
-The default suite tests 5, 10, 15, 20, and 25 square worlds. The egocentric policy
-has no training-canvas size limit. The default agent count, turn limit, and tree
-density come from the bundle's training
-configuration. Override the matrix when needed:
+The default suite tests multiples of five from 5 through 50. The egocentric policy
+has no training-canvas size limit; the evaluation CLI uses 50 as a practical default
+ceiling. The default agent count, turn limit, and tree density come from the bundle's
+training configuration. Override the matrix when needed:
 
 ```sh
-make eval-rl ARGS="--bundle artifacts/rl/.../RUN_DIRECTORY --sizes 10 15 25 --seeds 11 22 33 --agents 10 --max-turns 250"
+make eval-rl ARGS="--bundle artifacts/rl/.../RUN_DIRECTORY --sizes 30 40 50 --seeds 11 22 33 --agents 10 --max-turns 250"
 ```
 
 Each episode reports surviving agents, total agent-turns survived, and tiles claimed.

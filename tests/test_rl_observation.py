@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 
 from jevu.agent import Agent
-from jevu.rl.observation import ObservationSpec, encode_observation
+from jevu.rl.observation import CHANNEL_NAMES, ObservationSpec, encode_observation
 from jevu.world import Position, TileType, World, WorldConfig
 
 
@@ -26,13 +26,53 @@ class RLObservationTests(unittest.TestCase):
         observation = encode_observation(state, spec)
 
         self.assertTrue(spec.space().contains(observation))
-        self.assertEqual(observation["map"].shape, (8, 3, 3))
+        self.assertEqual(observation["map"].shape, (10, 3, 3))
         self.assertEqual(int(observation["map"][0].sum()), 5)
         self.assertEqual(observation["map"][0, 0, 0], 0.0)
         self.assertEqual(observation["map"][2, 0, 0], 0.0)
         self.assertEqual(observation["map"][6, 1, 2], 1.0)
         self.assertEqual(observation["map"][7, 1, 1], 1.0)
         np.testing.assert_allclose(observation["scalars"], [0.5, 0.0])
+
+    def test_encodes_recent_visit_counts_for_visible_tiles(self) -> None:
+        world = World.generate(
+            WorldConfig(width=3, height=3, fruit_tree_density=0.0)
+        )
+        current = Position(1, 1)
+        left = Position(0, 1)
+        state = Agent(
+            1,
+            current,
+            recent_positions=(left, current, left, left, current),
+        ).state(world)
+
+        observation = encode_observation(state, ObservationSpec(max_turns=20))
+        visits = observation["map"][CHANNEL_NAMES.index("recent_visit_count")]
+
+        self.assertAlmostEqual(visits[1, 0], 0.3)
+        self.assertAlmostEqual(visits[1, 1], 0.2)
+        self.assertEqual(visits[1, 2], 0.0)
+
+    def test_marks_only_visible_unclaimed_frontier_tiles(self) -> None:
+        world = World.generate(
+            WorldConfig(width=3, height=3, fruit_tree_density=0.0)
+        )
+        current = Position(1, 1)
+        left = Position(0, 1)
+        right = Position(2, 1)
+        state = Agent(1, current).state(
+            world,
+            tile_claims={current: 1, right: 2},
+        )
+
+        observation = encode_observation(state, ObservationSpec(max_turns=20))
+        frontier = observation["map"][CHANNEL_NAMES.index("unclaimed_frontier")]
+
+        self.assertEqual(frontier[1, 0], 1.0)
+        self.assertEqual(frontier[1, 1], 0.0)
+        self.assertEqual(frontier[1, 2], 0.0)
+        self.assertEqual(state.adjacent_tile_claims["left"], None)
+        self.assertEqual(state.adjacent_tile_claims["right"], "A2")
 
     def test_same_local_state_matches_across_locations_and_world_sizes(self) -> None:
         small = World(

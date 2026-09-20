@@ -46,8 +46,8 @@ def evaluate_case(
 ) -> EvaluationResult:
     """Run one square world without logs or console rendering."""
 
-    if size <= 0 or size > 25:
-        raise ValueError("Evaluation size must be between 1 and 25")
+    if size <= 0:
+        raise ValueError("Evaluation size must be positive")
     if agent_count <= 0 or agent_count > size * size:
         raise ValueError("Agent count must fit within the evaluation world")
     if max_turns <= 0:

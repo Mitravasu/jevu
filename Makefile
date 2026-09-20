@@ -20,7 +20,7 @@ run: ## Run a game (ARGS="--width N --height N --tree-density F --seed N --agent
 run-rl: ## Run a saved RL model (ARGS="--bundle artifacts/rl/.../RUN [game options]")
 	uv run --extra rl python main.py --agent-backend rl $(ARGS)
 
-eval-rl: ## Score a saved RL model across fixed seeds and sizes up to 25
+eval-rl: ## Score a saved RL model across fixed seeds and sizes up to 50
 	uv run --extra rl python eval_rl.py $(ARGS)
 
 view: ## Animate a game (ARGS="same as run, plus --turns-per-second F")

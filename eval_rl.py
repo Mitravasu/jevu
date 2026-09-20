@@ -18,7 +18,7 @@ from jevu.rl.evaluation import EvaluationResult, evaluate_case, summarize
 from jevu.rl.selector import RLActionSelector
 
 DEFAULT_SEEDS = (7, 42, 101, 202, 999)
-MAX_EVALUATION_SIZE = 25
+MAX_EVALUATION_SIZE = 50
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -30,7 +30,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--sizes",
         type=int,
         nargs="+",
-        help="Square world sizes (default: 5, 10, 15, 20, 25 when supported)",
+        help="Square world sizes (default: multiples of 5 through --max-size)",
     )
     parser.add_argument("--seeds", type=int, nargs="+", default=list(DEFAULT_SEEDS))
     parser.add_argument("--max-size", type=int, default=MAX_EVALUATION_SIZE)
