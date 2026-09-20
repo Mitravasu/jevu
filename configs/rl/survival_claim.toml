@@ -1,0 +1,34 @@
+[run]
+name = "survival-claim-v1"
+seed = 7
+total_timesteps = 250000
+output_dir = "artifacts/rl"
+console_output = "progress"
+
+[environment]
+width = 25
+height = 25
+fruit_tree_density = 0.15
+max_turns = 250
+agent_count = 10
+
+[reward]
+survival_per_turn = 1.0
+claim_tile = 2.0
+death = -25.0
+ineffective_action = -0.05
+
+[algorithm]
+name = "maskable_ppo"
+device = "auto"
+parallel_envs = 4
+learning_rate = 0.0003
+n_steps = 512
+batch_size = 64
+gamma = 0.99
+gae_lambda = 0.95
+ent_coef = 0.01
+
+[checkpoint]
+every_timesteps = 50000
+keep_last = 3

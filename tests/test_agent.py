@@ -15,6 +15,8 @@ class AgentTests(unittest.TestCase):
         state = agent.state(self.world)
 
         self.assertEqual(state.id, "A1")
+        self.assertEqual(state.world_width, 5)
+        self.assertEqual(state.world_height, 4)
         self.assertEqual(state.position, Position(2, 2))
         self.assertEqual(state.current_tile, self.world.tile_at(Position(2, 2)))
         self.assertEqual(state.current_tile_cooldown, 0)
@@ -66,6 +68,7 @@ class AgentTests(unittest.TestCase):
         agent = Agent(number=1, position=Position(0, 0))
 
         self.assertTrue(self.world.render_ascii([agent]).startswith("A1 "))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -34,6 +34,8 @@ class AgentState:
     """A snapshot of everything currently observable about an agent."""
 
     id: str
+    world_width: int
+    world_height: int
     position: Position
     current_tile: TileType
     current_tile_cooldown: int
@@ -108,6 +110,8 @@ class Agent:
 
         return AgentState(
             id=self.id,
+            world_width=world.config.width,
+            world_height=world.config.height,
             position=self.position,
             current_tile=world.tile_at(self.position),
             current_tile_cooldown=cooldowns.get(self.position, 0),

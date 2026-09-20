@@ -67,6 +67,157 @@ class ActionLogEntry:
 
 
 @dataclass(frozen=True, slots=True)
+class TurnPreparation:
+    """Automatic effects applied before agents choose actions for a turn."""
+
+    agents: tuple[Agent, ...]
+    automatic_food: dict[int, int]
+    newly_harvested: frozenset[Position]
+
+
+@dataclass(frozen=True, slots=True)
+class AgentTurnResult:
+    """Result of applying one agent's action inside a shared world turn."""
+
+    entry: ActionLogEntry
+    agent_number: int
+    survived: bool
+    newly_claimed_tiles: int
+
+
+class TurnSession:
+    """Incrementally execute one world turn in deterministic agent order."""
+
+    def __init__(self, game_state: GameState) -> None:
+        self._game_state = game_state
+        preparation = game_state._prepare_turn()
+        self._turn = game_state.turn + 1
+        self._automatic_food = preparation.automatic_food
+        self._newly_harvested = set(preparation.newly_harvested)
+        self._turn_agents = preparation.agents
+        self._occupied_positions = {agent.position for agent in self._turn_agents}
+        self._updated_agents: list[Agent] = []
+        self._new_log_entries: list[ActionLogEntry] = []
+        self._tile_claims = dict(game_state.tile_claims)
+        self._index = 0
+
+    @property
+    def complete(self) -> bool:
+        return self._index >= len(self._turn_agents)
+
+    @property
+    def tile_claims(self) -> dict[Position, int]:
+        return dict(self._tile_claims)
+
+    @property
+    def current_agent(self) -> Agent:
+        if self.complete:
+            raise RuntimeError("Every agent has already acted this turn")
+        return self._turn_agents[self._index]
+
+    def current_state(self) -> AgentState:
+        """Return the state the next agent observes before choosing an action."""
+
+        agent = self.current_agent
+        return agent.state(
+            self._game_state.world,
+            self._game_state._active_cooldowns(self._newly_harvested),
+            self._tile_claims,
+        )
+
+    def apply(self, selection: ActionSelection) -> AgentTurnResult:
+        """Apply one selection and advance to the next agent in this turn."""
+
+        agent = self.current_agent
+        active_cooldowns = self._game_state._active_cooldowns(self._newly_harvested)
+        self._occupied_positions.remove(agent.position)
+        decision = selection if isinstance(selection, TurnDecision) else None
+        actions = decision.actions if decision is not None else selection
+        claims_before = sum(
+            owner == agent.number for owner in self._tile_claims.values()
+        )
+        if actions.interact is InteractAction.CLAIM:
+            self._tile_claims = claim_tile(
+                agent,
+                self._game_state.world,
+                self._tile_claims,
+            )
+        claims_after = sum(
+            owner == agent.number for owner in self._tile_claims.values()
+        )
+        updated_agent = take_turn(
+            agent,
+            self._game_state.world,
+            actions,
+            fruit_tree_available=active_cooldowns.get(agent.position, 0) == 0,
+        )
+        if (
+            actions.interact is InteractAction.HARVEST
+            and updated_agent.inventory.food > agent.inventory.food
+        ):
+            self._newly_harvested.add(agent.position)
+
+        if updated_agent.position in self._occupied_positions:
+            updated_agent = replace(updated_agent, position=agent.position)
+
+        updated_agent = replace(
+            updated_agent,
+            hunger=max(
+                MIN_HUNGER,
+                updated_agent.hunger - HUNGER_LOSS_PER_TURN,
+            ),
+        )
+        entry = ActionLogEntry(
+            turn=self._turn,
+            agent_id=agent.id,
+            actions=actions,
+            start_position=agent.position,
+            end_position=updated_agent.position,
+            start_hunger=agent.hunger,
+            end_hunger=updated_agent.hunger,
+            start_food=agent.inventory.food,
+            end_food=updated_agent.inventory.food,
+            automatic_harvest_food=self._automatic_food.get(agent.number, 0),
+            decision=decision,
+        )
+        self._new_log_entries.append(entry)
+        survived = updated_agent.hunger > MIN_HUNGER
+        if survived:
+            self._updated_agents.append(updated_agent)
+            self._occupied_positions.add(updated_agent.position)
+        self._index += 1
+        return AgentTurnResult(
+            entry=entry,
+            agent_number=agent.number,
+            survived=survived,
+            newly_claimed_tiles=claims_after - claims_before,
+        )
+
+    def finish(self) -> GameState:
+        """Build the next immutable game state after every agent has acted."""
+
+        if not self.complete:
+            raise RuntimeError("Cannot finish a turn before every agent has acted")
+        remaining_cooldowns = {
+            position: cooldown - 1
+            for position, cooldown in self._game_state.fruit_tree_cooldowns.items()
+            if cooldown > 1
+        }
+        if FRUIT_TREE_COOLDOWN > 0:
+            remaining_cooldowns.update(
+                {position: FRUIT_TREE_COOLDOWN for position in self._newly_harvested}
+            )
+        return replace(
+            self._game_state,
+            agents=tuple(self._updated_agents),
+            turn=self._turn,
+            action_log=(self._game_state.action_log + tuple(self._new_log_entries)),
+            fruit_tree_cooldowns=remaining_cooldowns,
+            tile_claims=self._tile_claims,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class GameState:
     """The world and all agents currently in it."""
 
@@ -125,13 +276,9 @@ class GameState:
             for agent in self.agents
         )
 
-    def _run_turn(
-        self,
-        action_selector: Callable[[AgentState], ActionSelection],
-    ) -> GameState:
-        """Run one selected turn for every living agent."""
+    def _prepare_turn(self) -> TurnPreparation:
+        """Apply automatic harvests that occur before action selection."""
 
-        turn = self.turn + 1
         automatic_food: dict[int, int] = {}
         newly_harvested: set[Position] = set()
         living_agent_numbers = {agent.number for agent in self.agents}
@@ -147,7 +294,7 @@ class GameState:
             )
             newly_harvested.add(position)
 
-        turn_agents = tuple(
+        agents = tuple(
             replace(
                 agent,
                 inventory=agent.inventory.add_food(automatic_food[agent.number]),
@@ -156,95 +303,49 @@ class GameState:
             else agent
             for agent in self.agents
         )
-        occupied_positions = {agent.position for agent in turn_agents}
-        updated_agents: list[Agent] = []
-        new_log_entries: list[ActionLogEntry] = []
-        tile_claims = dict(self.tile_claims)
+        return TurnPreparation(
+            agents=agents,
+            automatic_food=automatic_food,
+            newly_harvested=frozenset(newly_harvested),
+        )
 
-        for agent in turn_agents:
-            occupied_positions.remove(agent.position)
-            active_cooldowns = {
-                position: cooldown
-                for position, cooldown in self.fruit_tree_cooldowns.items()
-                if cooldown > 0
-            }
-            if FRUIT_TREE_COOLDOWN > 0:
-                active_cooldowns.update(
-                    {
-                        position: FRUIT_TREE_COOLDOWN
-                        for position in newly_harvested
-                    }
-                )
-            selection = action_selector(
-                agent.state(self.world, active_cooldowns, tile_claims)
-            )
-            decision = selection if isinstance(selection, TurnDecision) else None
-            actions = decision.actions if decision is not None else selection
-            if actions.interact is InteractAction.CLAIM:
-                tile_claims = claim_tile(agent, self.world, tile_claims)
-            updated_agent = take_turn(
-                agent,
-                self.world,
-                actions,
-                fruit_tree_available=active_cooldowns.get(agent.position, 0) == 0,
-            )
-            if (
-                actions.interact is InteractAction.HARVEST
-                and updated_agent.inventory.food > agent.inventory.food
-            ):
-                newly_harvested.add(agent.position)
-
-            if updated_agent.position in occupied_positions:
-                updated_agent = replace(updated_agent, position=agent.position)
-
-            updated_agent = replace(
-                updated_agent,
-                hunger=max(
-                    MIN_HUNGER,
-                    updated_agent.hunger - HUNGER_LOSS_PER_TURN,
-                ),
-            )
-            new_log_entries.append(
-                ActionLogEntry(
-                    turn=turn,
-                    agent_id=agent.id,
-                    actions=actions,
-                    start_position=agent.position,
-                    end_position=updated_agent.position,
-                    start_hunger=agent.hunger,
-                    end_hunger=updated_agent.hunger,
-                    start_food=agent.inventory.food,
-                    end_food=updated_agent.inventory.food,
-                    automatic_harvest_food=automatic_food.get(agent.number, 0),
-                    decision=decision,
-                )
-            )
-
-            if updated_agent.hunger > MIN_HUNGER:
-                updated_agents.append(updated_agent)
-                occupied_positions.add(updated_agent.position)
-
-        remaining_cooldowns = {
-            position: cooldown - 1
+    def _active_cooldowns(
+        self,
+        newly_harvested: frozenset[Position] | set[Position],
+    ) -> dict[Position, int]:
+        active_cooldowns = {
+            position: cooldown
             for position, cooldown in self.fruit_tree_cooldowns.items()
-            if cooldown > 1
+            if cooldown > 0
         }
         if FRUIT_TREE_COOLDOWN > 0:
-            remaining_cooldowns.update(
-                {
-                    position: FRUIT_TREE_COOLDOWN
-                    for position in newly_harvested
-                }
+            active_cooldowns.update(
+                {position: FRUIT_TREE_COOLDOWN for position in newly_harvested}
             )
+        return active_cooldowns
 
-        return replace(
-            self,
-            agents=tuple(updated_agents),
-            turn=turn,
-            action_log=self.action_log + tuple(new_log_entries),
-            fruit_tree_cooldowns=remaining_cooldowns,
-            tile_claims=tile_claims,
-        )
+    def next_single_agent_state(self) -> AgentState:
+        """Preview the exact state a sole agent will use for its next decision."""
+
+        if len(self.agents) != 1:
+            raise ValueError("Next-turn preview requires exactly one living agent")
+        return self.start_turn().current_state()
+
+    def start_turn(self) -> TurnSession:
+        """Start an incremental turn shared by simulation and RL training."""
+
+        return TurnSession(self)
+
+    def step(
+        self,
+        action_selector: Callable[[AgentState], ActionSelection],
+    ) -> GameState:
+        """Advance every living agent by one deterministic simulation turn."""
+
+        turn = self.start_turn()
+        while not turn.complete:
+            turn.apply(action_selector(turn.current_state()))
+        return turn.finish()
 
     def run(
         self,
@@ -265,7 +366,7 @@ class GameState:
         for _ in range(max_turns if should_continue else 0):
             if not game_state.agents:
                 break
-            game_state = game_state._run_turn(action_selector)
+            game_state = game_state.step(action_selector)
             if state_callback is not None and not state_callback(game_state):
                 break
 

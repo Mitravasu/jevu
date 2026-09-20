@@ -101,8 +101,7 @@ class GameStateTests(unittest.TestCase):
         self.assertEqual(first_entry.start_food, 0)
         self.assertIn("position=(", str(first_entry))
         self.assertIn(
-            f"hunger={INITIAL_HUNGER} -> "
-            f"{INITIAL_HUNGER - HUNGER_LOSS_PER_TURN}",
+            f"hunger={INITIAL_HUNGER} -> {INITIAL_HUNGER - HUNGER_LOSS_PER_TURN}",
             str(first_entry),
         )
         self.assertIn("food=", str(first_entry))
@@ -124,6 +123,28 @@ class GameStateTests(unittest.TestCase):
             )
 
         self.assertEqual(first_result, second_result)
+
+    def test_public_step_matches_one_turn_of_run(self) -> None:
+        game_state = GameState.create(self.config, agent_count=1)
+
+        stepped = game_state.step(select_actions)
+        with redirect_stdout(StringIO()):
+            run = game_state.run(
+                max_turns=1,
+                log_directory=None,
+                action_selector=select_actions,
+            )
+
+        self.assertEqual(stepped, run)
+
+    def test_incremental_turn_session_matches_normal_multi_agent_step(self) -> None:
+        game_state = GameState.create(self.config, agent_count=3)
+        session = game_state.start_turn()
+
+        while not session.complete:
+            session.apply(select_actions(session.current_state()))
+
+        self.assertEqual(session.finish(), game_state.step(select_actions))
 
     def test_harvested_tree_cools_down_before_becoming_available(self) -> None:
         position = Position(0, 0)
@@ -220,6 +241,30 @@ class GameStateTests(unittest.TestCase):
             automatic_harvests,
             [FOOD_HARVEST_AMOUNT, FOOD_HARVEST_AMOUNT],
         )
+
+    def test_next_single_agent_state_includes_pre_action_automatic_harvest(
+        self,
+    ) -> None:
+        position = Position(0, 0)
+        world = World(
+            config=WorldConfig(width=1, height=1, fruit_tree_density=1.0),
+            tiles=((TileType.FRUIT_TREE,),),
+        )
+        game_state = GameState(
+            world=world,
+            agents=(Agent(number=1, position=position),),
+            tile_claims={position: 1},
+        )
+
+        preview = game_state.next_single_agent_state()
+        observed_states = []
+        game_state.step(
+            lambda state: observed_states.append(state) or select_actions(state)
+        )
+
+        self.assertEqual(preview.inventory.food, FOOD_HARVEST_AMOUNT)
+        self.assertEqual(preview.current_tile_cooldown, FRUIT_TREE_COOLDOWN)
+        self.assertEqual(observed_states, [preview])
 
     def test_agents_die_when_hunger_reaches_zero(self) -> None:
         game_state = GameState.create(self.config, agent_count=1)
