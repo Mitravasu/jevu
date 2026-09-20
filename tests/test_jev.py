@@ -12,6 +12,7 @@ from jevu.jev import (
     INTERACT_QUESTION,
     JevActionSelector,
 )
+from jevu.personalities import PERSONALITY_PROFILES, Personality
 from jevu.rules import (
     FOOD_EAT_COST,
     FOOD_HARVEST_AMOUNT,
@@ -108,7 +109,12 @@ class JevActionSelectorTests(unittest.TestCase):
         client = FakeClient()
         selector = JevActionSelector(client=client)
 
-        decision = selector(Agent(number=1, position=Position(1, 1)).state(world))
+        agent = Agent(
+            number=1,
+            position=Position(1, 1),
+            personality=Personality.FRONTIER_EXPLORER,
+        )
+        decision = selector(agent.state(world))
 
         self.assertEqual(
             decision.actions,
@@ -126,11 +132,61 @@ class JevActionSelectorTests(unittest.TestCase):
         self.assertEqual(client.state["goals"], list(AGENT_GOALS))
         self.assertEqual(client.state["rules"], list(GAME_RULES))
         self.assertEqual(client.state["agent_state"]["id"], "A1")
+        profile = PERSONALITY_PROFILES[Personality.FRONTIER_EXPLORER]
+        self.assertEqual(
+            client.state["agent_state"]["personality"],
+            {
+                "id": Personality.FRONTIER_EXPLORER.value,
+                "name": profile.name,
+                "description": profile.description,
+                "behavior_priorities": list(profile.behavior_priorities),
+            },
+        )
         self.assertEqual(client.state["agent_state"]["current_tile_cooldown"], 0)
         self.assertIsNone(client.state["agent_state"]["current_tile_claim"])
+        self.assertEqual(client.state["agent_state"]["claimed_territory"], [])
         self.assertEqual(
             client.state["agent_state"]["adjacent_tiles"],
             {"up": "fruit_tree", "left": "blank"},
+        )
+
+    def test_serializes_claimed_tiles_and_their_neighbors(self) -> None:
+        world = World(
+            config=WorldConfig(width=2, height=1),
+            tiles=((TileType.FRUIT_TREE, TileType.BLANK),),
+        )
+        agent = Agent(number=1, position=Position(0, 0))
+        client = FakeClient()
+
+        JevActionSelector(client=client)(
+            agent.state(
+                world,
+                fruit_tree_cooldowns={Position(0, 0): 2},
+                tile_claims={Position(0, 0): 1},
+            )
+        )
+
+        territory = client.state["agent_state"]["claimed_territory"]
+        self.assertEqual(
+            territory,
+            [
+                {
+                    "tile": {
+                        "position": {"x": 0, "y": 0},
+                        "tile": "fruit_tree",
+                        "cooldown": 2,
+                        "claim": "A1",
+                    },
+                    "adjacent_tiles": {
+                        "right": {
+                            "position": {"x": 1, "y": 0},
+                            "tile": "blank",
+                            "cooldown": 0,
+                            "claim": None,
+                        }
+                    },
+                }
+            ],
         )
 
     def test_goals_are_state_not_question_instructions(self) -> None:

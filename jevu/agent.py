@@ -6,8 +6,27 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from jevu.inventory import InventoryState
+from jevu.personalities import Personality
 from jevu.rules import INITIAL_HUNGER, MAX_HUNGER, MIN_HUNGER
 from jevu.world import Position, TileType, World
+
+
+@dataclass(frozen=True, slots=True)
+class TileObservation:
+    """One visible tile and its dynamic simulation state."""
+
+    position: Position
+    tile: TileType
+    cooldown: int
+    claim: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class ClaimedTileObservation:
+    """An owned tile and the tiles visible from it."""
+
+    tile: TileObservation
+    adjacent_tiles: dict[str, TileObservation]
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,8 +41,10 @@ class AgentState:
     adjacent_tiles: dict[str, TileType]
     adjacent_tile_cooldowns: dict[str, int]
     adjacent_tile_claims: dict[str, str | None]
+    claimed_territory: tuple[ClaimedTileObservation, ...]
     hunger: int
     inventory: InventoryState
+    personality: Personality
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +55,7 @@ class Agent:
     position: Position
     hunger: int = INITIAL_HUNGER
     inventory: InventoryState = field(default_factory=InventoryState)
+    personality: Personality = Personality.ADAPTIVE_SURVIVOR
 
     def __post_init__(self) -> None:
         if self.number <= 0:
@@ -59,6 +81,31 @@ class Agent:
         claims = tile_claims or {}
         adjacent_positions = world.adjacent_positions(self.position)
 
+        def observe(position: Position) -> TileObservation:
+            return TileObservation(
+                position=position,
+                tile=world.tile_at(position),
+                cooldown=cooldowns.get(position, 0),
+                claim=f"A{claims[position]}" if position in claims else None,
+            )
+
+        claimed_territory = tuple(
+            ClaimedTileObservation(
+                tile=observe(position),
+                adjacent_tiles={
+                    direction: observe(adjacent_position)
+                    for direction, adjacent_position in world.adjacent_positions(
+                        position
+                    ).items()
+                },
+            )
+            for position, owner_number in sorted(
+                claims.items(),
+                key=lambda item: (item[0].y, item[0].x),
+            )
+            if owner_number == self.number
+        )
+
         return AgentState(
             id=self.id,
             position=self.position,
@@ -79,6 +126,8 @@ class Agent:
                 direction: f"A{claims[position]}" if position in claims else None
                 for direction, position in adjacent_positions.items()
             },
+            claimed_territory=claimed_territory,
             hunger=self.hunger,
             inventory=self.inventory,
+            personality=self.personality,
         )

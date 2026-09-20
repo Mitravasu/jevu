@@ -66,6 +66,10 @@ class SimulationLogTests(unittest.TestCase):
             ]
 
         self.assertEqual(records[0]["type"], "simulation_start")
+        self.assertEqual(
+            records[0]["agents"][0]["personality"],
+            game_state.agents[0].personality.value,
+        )
         self.assertEqual(records[-1]["type"], "simulation_end")
         self.assertEqual(
             [record["type"] for record in records[1:-1]],

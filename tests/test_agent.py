@@ -1,6 +1,7 @@
 import unittest
 
 from jevu.agent import Agent
+from jevu.personalities import Personality
 from jevu.rules import INITIAL_HUNGER
 from jevu.world import Position, World, WorldConfig
 
@@ -23,6 +24,7 @@ class AgentTests(unittest.TestCase):
         )
         self.assertEqual(state.hunger, INITIAL_HUNGER)
         self.assertEqual(state.inventory.food, 0)
+        self.assertEqual(state.personality, Personality.ADAPTIVE_SURVIVOR)
 
     def test_state_contains_observable_tree_cooldowns(self) -> None:
         agent = Agent(number=1, position=Position(2, 2))
@@ -50,6 +52,15 @@ class AgentTests(unittest.TestCase):
 
         self.assertEqual(state.current_tile_claim, "A1")
         self.assertEqual(state.adjacent_tile_claims["up"], "A2")
+        self.assertEqual(len(state.claimed_territory), 1)
+        claimed = state.claimed_territory[0]
+        self.assertEqual(claimed.tile.position, agent.position)
+        self.assertEqual(claimed.tile.claim, "A1")
+        self.assertEqual(
+            claimed.adjacent_tiles["up"].position,
+            adjacent_position,
+        )
+        self.assertEqual(claimed.adjacent_tiles["up"].claim, "A2")
 
     def test_rendering_displays_agent_id(self) -> None:
         agent = Agent(number=1, position=Position(0, 0))

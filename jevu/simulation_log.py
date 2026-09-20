@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 def _agent_record(agent: Agent) -> dict[str, Any]:
     return {
         "id": agent.id,
+        "personality": agent.personality.value,
         "position": {"x": agent.position.x, "y": agent.position.y},
         "hunger": agent.hunger,
         "inventory": {"food": agent.inventory.food},

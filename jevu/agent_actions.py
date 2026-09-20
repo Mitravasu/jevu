@@ -32,7 +32,11 @@ def _interaction_text(record: dict[str, Any], tile: str) -> str:
     return f"selected {action} on the {tile_name} tile"
 
 
-def _action_sentence(record: dict[str, Any], world: list[list[str]]) -> str:
+def _action_sentence(
+    record: dict[str, Any],
+    world: list[list[str]],
+    personality: str | None = None,
+) -> str:
     start = record["start"]["position"]
     end = record["end"]["position"]
     tile = world[start["y"]][start["x"]]
@@ -56,8 +60,11 @@ def _action_sentence(record: dict[str, Any], world: list[list[str]]) -> str:
             "claimed fruit trees."
         )
 
+    agent_label = f"Agent {record['agent_id']}"
+    if personality is not None:
+        agent_label += f" ({personality.replace('_', ' ')})"
     sentence = (
-        f"Turn {record['turn']}: Agent {record['agent_id']} {interaction} at "
+        f"Turn {record['turn']}: {agent_label} {interaction} at "
         f"{_position_text(start)}, {movement}.{automatic_harvest}"
     )
     decision = record.get("decision")
@@ -92,8 +99,12 @@ def extract_agent_actions(
         raise ValueError("Log must begin with a simulation_start record")
 
     world = records[0]["world"]
+    personalities = {
+        agent["id"]: agent.get("personality")
+        for agent in records[0].get("agents", [])
+    }
     return tuple(
-        _action_sentence(record, world)
+        _action_sentence(record, world, personalities.get(agent_id))
         for record in records
         if record.get("type") == "action" and record.get("agent_id") == agent_id
     )

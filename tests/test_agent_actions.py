@@ -180,6 +180,43 @@ class AgentActionExtractionTests(unittest.TestCase):
             "stayed at (0, 0).",
         )
 
+    def test_includes_personality_from_simulation_start(self) -> None:
+        records = [
+            {
+                "type": "simulation_start",
+                "world": [["blank"]],
+                "agents": [
+                    {"id": "A1", "personality": "frontier_explorer"},
+                ],
+            },
+            {
+                "type": "action",
+                "turn": 1,
+                "agent_id": "A1",
+                "actions": {"interact": "none", "explore": "stay"},
+                "start": {
+                    "position": {"x": 0, "y": 0},
+                    "hunger": 10,
+                    "food": 0,
+                },
+                "end": {
+                    "position": {"x": 0, "y": 0},
+                    "hunger": 9,
+                    "food": 0,
+                },
+            },
+        ]
+
+        with TemporaryDirectory() as directory:
+            log_path = Path(directory) / "simulation.jsonl"
+            log_path.write_text(
+                "\n".join(json.dumps(record) for record in records),
+                encoding="utf-8",
+            )
+            sentence = extract_agent_actions(log_path, "A1")[0]
+
+        self.assertIn("Agent A1 (frontier explorer)", sentence)
+
 
 if __name__ == "__main__":
     unittest.main()

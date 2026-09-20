@@ -6,6 +6,7 @@ from io import StringIO
 from jevu.actions import ExploreAction, InteractAction, TurnActions
 from jevu.agent import Agent, AgentState
 from jevu.game_state import GameState
+from jevu.personalities import personality_for_agent
 from jevu.rules import (
     FOOD_HARVEST_AMOUNT,
     FRUIT_TREE_COOLDOWN,
@@ -32,6 +33,10 @@ class GameStateTests(unittest.TestCase):
 
         self.assertEqual(game_state.world.config, self.config)
         self.assertEqual([agent.id for agent in game_state.agents], ["A1", "A2", "A3"])
+        self.assertEqual(
+            [agent.personality for agent in game_state.agents],
+            [personality_for_agent(number) for number in range(1, 4)],
+        )
         self.assertEqual(len({agent.position for agent in game_state.agents}), 3)
 
     def test_initial_setup_is_deterministic(self) -> None:

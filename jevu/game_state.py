@@ -10,6 +10,7 @@ from random import Random
 from jevu.actions import InteractAction, TurnActions, claim_tile, take_turn
 from jevu.agent import Agent, AgentState
 from jevu.decision import ActionSelection, TurnDecision
+from jevu.personalities import personality_for_agent
 from jevu.rules import (
     FOOD_HARVEST_AMOUNT,
     FRUIT_TREE_COOLDOWN,
@@ -99,7 +100,11 @@ class GameState:
         random = Random(world.config.seed)
         positions = random.sample(available_positions, count)
         return tuple(
-            Agent(number=number, position=position)
+            Agent(
+                number=number,
+                position=position,
+                personality=personality_for_agent(number),
+            )
             for number, position in enumerate(positions, start=1)
         )
 
@@ -115,6 +120,7 @@ class GameState:
             return "(none)"
         return "\n".join(
             f"{agent.id}: (x={agent.position.x}, y={agent.position.y}), "
+            f"personality={agent.personality.value}, "
             f"hunger={agent.hunger}, food={agent.inventory.food}"
             for agent in self.agents
         )

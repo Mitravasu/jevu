@@ -42,7 +42,10 @@ INTERACT_CRITERIA = {
 EXPLORE_INSTRUCTIONS = (
     "Which direction should the agent move after interacting? Use `goals`, "
     "`agent_state.adjacent_tiles`, and `agent_state.adjacent_tile_claims`; a "
-    "missing direction is a world boundary and leaves the agent in place."
+    "missing direction is a world boundary and leaves the agent in place. Use "
+    "`agent_state.claimed_territory` as the agent's known map of every owned "
+    "tile and the tiles visible beside it, avoiding repeated movement between "
+    "the same tiles when a useful frontier route exists."
 )
 
 EXPLORE_CRITERIA = {
