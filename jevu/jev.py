@@ -102,6 +102,7 @@ def _state_payload(state: AgentState) -> dict[str, object]:
             },
             "adjacent_tile_cooldowns": state.adjacent_tile_cooldowns,
             "adjacent_tile_claims": state.adjacent_tile_claims,
+            "adjacent_agents": state.adjacent_agents,
             "claimed_territory": [
                 {
                     "tile": tile_payload(claimed.tile),

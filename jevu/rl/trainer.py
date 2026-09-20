@@ -17,6 +17,10 @@ from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv
 
 from jevu.game_state import GameState
 from jevu.rl.action_codec import action_mapping
+from jevu.rl.agent_aware_ppo import (
+    AgentAwareMaskableDictRolloutBuffer,
+    AgentAwareMaskablePPO,
+)
 from jevu.rl.bundle import (
     BUNDLE_VERSION,
     METADATA_FILENAME,
@@ -136,8 +140,6 @@ def _metadata(
     resolved_device: str,
 ) -> dict[str, Any]:
     spec = ObservationSpec(
-        config.environment.width,
-        config.environment.height,
         config.environment.max_turns,
     )
     return {
@@ -175,8 +177,6 @@ def _smoke_test_bundle(
     resolved_device: str,
 ) -> dict[str, Any]:
     spec = ObservationSpec(
-        config.environment.width,
-        config.environment.height,
         config.environment.max_turns,
     )
     reloaded_model = MaskablePPO.load(
@@ -251,7 +251,7 @@ def train(config: TrainingConfig) -> Path:
     callbacks: list[BaseCallback] = [artifact_callback]
     if show_progress:
         callbacks.append(LossProgressBarCallback())
-    model = MaskablePPO(
+    model = AgentAwareMaskablePPO(
         "MultiInputPolicy",
         environment,
         learning_rate=algorithm.learning_rate,
@@ -264,6 +264,7 @@ def train(config: TrainingConfig) -> Path:
         device=resolved_device,
         tensorboard_log=str(run_directory / "tensorboard"),
         verbose=int(show_tables),
+        rollout_buffer_class=AgentAwareMaskableDictRolloutBuffer,
     )
     try:
         model.learn(

@@ -40,6 +40,21 @@ class RLActionCodecTests(unittest.TestCase):
             np.asarray([False, False, True, True, False, True, False, True, True]),
         )
 
+    def test_does_not_mask_a_move_just_because_an_agent_occupies_it(self) -> None:
+        world = World(
+            WorldConfig(width=2, height=1, fruit_tree_density=0.0),
+            ((TileType.BLANK, TileType.BLANK),),
+        )
+        state = Agent(1, Position(0, 0)).state(
+            world,
+            agent_positions={Position(0, 0): 1, Position(1, 0): 2},
+        )
+
+        masks = action_masks(state, width=2, height=1)
+
+        self.assertEqual(state.adjacent_agents["right"], "A2")
+        self.assertTrue(masks[4 + list(ExploreAction).index(ExploreAction.RIGHT)])
+
 
 if __name__ == "__main__":
     unittest.main()

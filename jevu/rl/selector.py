@@ -61,7 +61,11 @@ class RLActionSelector:
             raise ValueError("Unsupported RL model algorithm")
         observation = metadata.get("observation_schema", {})
         if observation.get("version") != OBSERVATION_SCHEMA_VERSION:
-            raise ValueError("Unsupported observation schema version")
+            raise ValueError(
+                "Incompatible observation schema: expected egocentric version "
+                f"{OBSERVATION_SCHEMA_VERSION}, got {observation.get('version')}; "
+                "retrain this model with the current trainer"
+            )
         if metadata.get("action_mapping") != action_mapping():
             raise ValueError(
                 "The model action mapping is incompatible with this JevU version"
@@ -69,8 +73,6 @@ class RLActionSelector:
         if metadata.get("game_rules") != game_rules_metadata():
             raise ValueError("The model was trained with incompatible game rules")
         spec = ObservationSpec(
-            width=int(observation["width"]),
-            height=int(observation["height"]),
             max_turns=int(observation["max_turns"]),
         )
         model = MaskablePPO.load(model_path, device=resolve_device(device))
@@ -92,6 +94,6 @@ class RLActionSelector:
 
     @property
     def observation_spec(self) -> ObservationSpec:
-        """Return the maximum world dimensions accepted by this policy."""
+        """Return the policy's world-size-independent observation schema."""
 
         return self._observation_spec

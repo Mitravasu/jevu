@@ -135,12 +135,7 @@ def main(argv: Sequence[str] | None = None) -> Path:
     training = _training_environment(metadata)
     selector = RLActionSelector.from_bundle(bundle, device=args.device)
 
-    model_maximum = min(
-        selector.observation_spec.width,
-        selector.observation_spec.height,
-        args.max_size,
-        MAX_EVALUATION_SIZE,
-    )
+    model_maximum = min(args.max_size, MAX_EVALUATION_SIZE)
     agent_count = args.agents or int(training["agent_count"])
     max_turns = args.max_turns or int(training["max_turns"])
     tree_density = (
@@ -152,7 +147,7 @@ def main(argv: Sequence[str] | None = None) -> Path:
     for size in sizes:
         if size > model_maximum:
             raise ValueError(
-                f"Size {size} exceeds this model's {model_maximum}x{model_maximum} "
+                f"Size {size} exceeds the {model_maximum}x{model_maximum} "
                 "evaluation limit"
             )
         if agent_count > size * size:

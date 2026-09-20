@@ -78,6 +78,16 @@ Agents act sequentially in their normal simulation order. Each action is one tra
 timestep and updates the world immediately, so later agents observe claims made by
 earlier agents and cannot claim those tiles. Every agent contributes experience to
 the same policy; the trainer does not create a separate neural network per agent.
+PPO's advantage calculation follows each identity across the round—for example,
+`A1(turn 3) -> A1(turn 4)`—instead of treating A2's state as the result of A1's
+action. An agent's death terminates that trajectory once; dead agents produce no
+placeholder transitions. At a rollout boundary, the one unmatched tail transition
+per living agent is treated as a boundary because its next personal observation has
+not been produced yet.
+
+The RL observation is a relative one-tile view. Adjacent-agent occupancy is visible,
+but moves into occupied tiles are deliberately not action-masked: the normal failed
+move and ineffective-action penalty teach the policy how to react to collisions.
 
 Consequently, `total_timesteps = 20000` means 20,000 total agent decisions. With ten
 living agents that is approximately 2,000 shared-world turns, not 20,000 turns per
@@ -114,12 +124,13 @@ watch the trained policy:
 make run-rl ARGS="--bundle artifacts/rl/survival-claim-v1/RUN_DIRECTORY --max-turns 250 --seed 42 --pygame"
 ```
 
-The training width and height are the model's maximum observation canvas. A saved
-model can run on worlds at or below those dimensions; smaller worlds are padded as
-unknown space. It cannot run on a larger world. Bundle loading also checks the game
-rules, action mapping, and observation schema, and fails clearly when they are
-incompatible. RL inference uses the same automatic MPS/CUDA/CPU selection as training;
-pass `--device cpu` if you want to override it.
+The policy observes a fixed 3 by 3 agent-centered view: its current tile, the four
+orthogonally adjacent tiles, visible boundaries, and any adjacent agents. It does not
+receive absolute coordinates or the full map, so the same bundle can run on any world
+size supported by the simulator. Bundle loading checks the game rules, action mapping,
+and observation schema, and old global-map bundles fail clearly as incompatible. RL
+inference uses the same automatic MPS/CUDA/CPU selection as training; pass `--device
+cpu` if you want to override it.
 
 For a manual comparison, run Jev and RL with the same world parameters:
 
@@ -140,9 +151,9 @@ sizes from 5 through 25:
 make eval-rl ARGS="--bundle artifacts/rl/survival-claim-v1/RUN_DIRECTORY"
 ```
 
-The model's trained width and height cap the suite. For example, a 25 by 25 bundle is
-tested at 5, 10, 15, 20, and 25, while a 10 by 10 bundle is tested at 5 and 10. The
-default agent count, turn limit, and tree density come from the bundle's training
+The default suite tests 5, 10, 15, 20, and 25 square worlds. The egocentric policy
+has no training-canvas size limit. The default agent count, turn limit, and tree
+density come from the bundle's training
 configuration. Override the matrix when needed:
 
 ```sh

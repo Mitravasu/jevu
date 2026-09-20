@@ -43,6 +43,15 @@ class RLEnvironmentTests(unittest.TestCase):
         np.testing.assert_array_equal(first_step[0]["map"], second_step[0]["map"])
         self.assertEqual(first_step[1:], second_step[1:])
 
+    def test_reset_assigns_a_monotonic_episode_identity(self) -> None:
+        environment = JevUGymEnv(self.environment_config, self.reward_config)
+
+        _, first_info = environment.reset(seed=42)
+        _, second_info = environment.reset()
+
+        self.assertEqual(first_info["episode_index"], 1)
+        self.assertEqual(second_info["episode_index"], 2)
+
     def test_claim_reward_is_only_paid_once(self) -> None:
         environment = JevUGymEnv(self.environment_config, self.reward_config)
         environment.reset(seed=1)
@@ -81,7 +90,8 @@ class RLEnvironmentTests(unittest.TestCase):
         self.assertFalse(terminated)
         self.assertFalse(truncated)
         self.assertEqual(environment.game_state.turn, 0)
-        self.assertEqual(second_observation["map"][4].sum(), 1.0)
+        self.assertEqual(second_observation["map"][5].sum(), 1.0)
+        self.assertEqual(second_observation["map"][6].sum(), 1.0)
 
         _, second_reward, terminated, truncated, second_info = environment.step(claim)
 

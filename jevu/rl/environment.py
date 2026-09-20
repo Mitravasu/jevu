@@ -53,8 +53,6 @@ class JevUGymEnv(gym.Env[dict[str, np.ndarray], np.ndarray]):
         self.environment_config = environment_config
         self.reward_config = reward_config
         self.observation_spec = ObservationSpec(
-            width=environment_config.width,
-            height=environment_config.height,
             max_turns=environment_config.max_turns,
         )
         self.observation_space = self.observation_spec.space()
@@ -70,6 +68,7 @@ class JevUGymEnv(gym.Env[dict[str, np.ndarray], np.ndarray]):
             "ineffective_action": 0.0,
         }
         self._world_seed: int | None = None
+        self._episode_index = 0
 
     def reset(
         self,
@@ -79,6 +78,9 @@ class JevUGymEnv(gym.Env[dict[str, np.ndarray], np.ndarray]):
     ) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
         del options
         super().reset(seed=seed)
+        if seed is not None:
+            self._episode_index = 0
+        self._episode_index += 1
         self._world_seed = int(self.np_random.integers(0, 2**31 - 1))
         self.game_state = GameState.create(
             WorldConfig(
@@ -98,7 +100,10 @@ class JevUGymEnv(gym.Env[dict[str, np.ndarray], np.ndarray]):
             "death": 0.0,
             "ineffective_action": 0.0,
         }
-        return self._observation(), {"world_seed": self._world_seed}
+        return self._observation(), {
+            "episode_index": self._episode_index,
+            "world_seed": self._world_seed,
+        }
 
     def step(
         self,
@@ -151,8 +156,10 @@ class JevUGymEnv(gym.Env[dict[str, np.ndarray], np.ndarray]):
                 self._turn_session = self.game_state.start_turn()
 
         info: dict[str, Any] = {
+            "episode_index": self._episode_index,
             "world_seed": self._world_seed,
             "acting_agent_id": agent_state.id,
+            "acting_agent_number": agent_number,
             "world_turn": turn_result.entry.turn,
             "reward_components": breakdown.to_dict(),
             "newly_claimed_tiles": newly_claimed,

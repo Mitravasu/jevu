@@ -119,10 +119,18 @@ class TurnSession:
         """Return the state the next agent observes before choosing an action."""
 
         agent = self.current_agent
+        visible_agents = {
+            other.position: other.number
+            for other in (
+                *self._updated_agents,
+                *self._turn_agents[self._index :],
+            )
+        }
         return agent.state(
             self._game_state.world,
             self._game_state._active_cooldowns(self._newly_harvested),
             self._tile_claims,
+            visible_agents,
         )
 
     def apply(self, selection: ActionSelection) -> AgentTurnResult:

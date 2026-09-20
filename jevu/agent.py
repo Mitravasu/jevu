@@ -43,6 +43,7 @@ class AgentState:
     adjacent_tiles: dict[str, TileType]
     adjacent_tile_cooldowns: dict[str, int]
     adjacent_tile_claims: dict[str, str | None]
+    adjacent_agents: dict[str, str | None]
     claimed_territory: tuple[ClaimedTileObservation, ...]
     hunger: int
     inventory: InventoryState
@@ -76,11 +77,13 @@ class Agent:
         world: World,
         fruit_tree_cooldowns: Mapping[Position, int] | None = None,
         tile_claims: Mapping[Position, int] | None = None,
+        agent_positions: Mapping[Position, int] | None = None,
     ) -> AgentState:
         """Return the agent's current state and local observation."""
 
         cooldowns = fruit_tree_cooldowns or {}
         claims = tile_claims or {}
+        visible_agents = agent_positions or {}
         adjacent_positions = world.adjacent_positions(self.position)
 
         def observe(position: Position) -> TileObservation:
@@ -128,6 +131,15 @@ class Agent:
             },
             adjacent_tile_claims={
                 direction: f"A{claims[position]}" if position in claims else None
+                for direction, position in adjacent_positions.items()
+            },
+            adjacent_agents={
+                direction: (
+                    f"A{visible_agents[position]}"
+                    if position in visible_agents
+                    and visible_agents[position] != self.number
+                    else None
+                )
                 for direction, position in adjacent_positions.items()
             },
             claimed_territory=claimed_territory,
