@@ -8,3 +8,4 @@ logs/
 plans/
 artifacts/
 experiment_log/
+.dev/
